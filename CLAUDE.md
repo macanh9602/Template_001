@@ -88,7 +88,9 @@ Khi user nhắn `đã repro`:
 - Tự chạy **compile / console check / static check / targeted EditMode test** khi rẻ, có tool và giúp bắt regression.
 - Không giả vờ đã manual-playtest gameplay/feel/Editor UX nếu chưa có người thao tác thật.
 - User là owner của **manual repro / tactile feel / final GD workflow acceptance** trừ khi task yêu cầu agent tự walkthrough bằng Unity tool và tool thực sự hỗ trợ.
-- Nếu manual step còn thiếu, để trạng thái `PENDING MANUAL`, không block việc hoàn tất code còn lại.
+- Nếu manual step còn thiếu, để trạng thái `PENDING MANUAL`, không block việc hoàn tất code **độc lập** còn lại.
+- Ngoại lệ: dependency được story/packet đánh dấu `ENTRY GATE` / `HARD GATE` thì `PENDING` = `BLOCKED`;
+  không implement downstream (`AGENTS.md §7.5`).
 - Không commit, push, merge hoặc đổi Git history nếu user chưa yêu cầu.
 
 ## Level Editor / tool UX

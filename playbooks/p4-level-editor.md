@@ -1,6 +1,10 @@
 # P4 — Level editor
 
-**Vào khi:** core loop chạy, cần nhiều level và/hoặc GD tham gia.
+> Chỉ dùng playbook này khi `Docs/project-context.md` đã chốt `Level authoring mode = UNITY_EDITOR`.
+> Nếu GD author bằng HTML/external tool/generator, dùng `playbooks/p4-authoring-pipeline.md` trước và **không**
+> duplicate Unity Level Editor nếu external workflow đã đủ.
+
+**Vào khi:** core loop chạy, cần nhiều level và/hoặc GD tham gia, và Unity Editor là authoring owner đã chốt.
 **Ra khi:** GD tự làm được một level hoàn chỉnh, chạy được trong game, **không hỏi dev**.
 
 Skill chính: `skills/level-editor/` (+ `refs/checklist.md`, `refs/anti-patterns.md` trong thư mục đó).

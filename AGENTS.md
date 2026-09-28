@@ -125,6 +125,21 @@ file và tìm first divergence. Evidence thiếu → tự bổ sung hook hẹp h
 
 Không Console spam, không log mỗi frame, không yêu cầu dev copy log nếu agent đọc được file project.
 
+## 7.5 Hard gate + execution status
+
+Precedence:
+
+- Generic `PENDING MANUAL` **không block phần code độc lập còn lại**.
+- Nhưng nếu story/packet đánh dấu một dependency là `ENTRY GATE`, `HARD GATE` hoặc điều kiện mở packet downstream,
+  thì `PENDING` = `BLOCKED`; **không implement downstream**.
+- Story/packet cụ thể thắng rule generic về dependency.
+
+Canonical execution state:
+
+`PLANNED / LOCKED / EXECUTABLE / IMPLEMENTING / IMPLEMENTED / VERIFYING / BLOCKED / DONE / SUPERSEDED`.
+
+`IMPLEMENTED != DONE`. Worker có thể report `IMPLEMENTED`; ROADMAP chỉ ghi `DONE` khi closure gate/evidence required đã PASS.
+
 ## 8. Definition of Done
 
 - Compile pass, console sạch (không error/warning mới do story gây ra).

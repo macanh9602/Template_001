@@ -35,6 +35,29 @@ Bắt đầu bằng `handoff/PROJECT-READINESS-PROMPT.md`.
 
 ---
 
+## Standard project-start flow
+
+Nếu có executable prototype / external GD tool / solver:
+
+```text
+GD input
+→ workflow/prototype-to-contract.md
+→ Authority Contract
+→ canonical data + Conformance Pack
+→ Project Readiness
+→ Bootstrap Manifest
+→ generated/transient .ps1
+→ apply + compile/review
+→ Big Phase capability map
+→ exactly one EXECUTABLE Worker Packet
+→ lower-reasoning agent
+```
+
+Frontier model dùng reasoning cho contract/decision/phase; `.ps1` gánh mechanical add/replace/delete/scaffold;
+lower worker tập trung implementation packet hiện tại.
+
+Generated project-specific `.ps1` được delete sau closure/commit. `templates/project-bootstrap.ps1` là reusable engine nên giữ.
+
 ## Bootstrap flow
 
 ```text
@@ -151,6 +174,9 @@ Không viết sẵn 10–15 story chi tiết khi architecture/foundation chưa v
 5. **Số liệu không nằm trong code.** Prefab field / Profile SO / level data.
 6. **Verify trung thực.** PASS chỉ khi đã chạy/evidence thật.
 7. **Harvest ngược về Template.** Bug/rework lặp lại phải sửa pack, không trả lại ở project sau.
+8. **Prototype authority theo area.** Gameplay/data/oracle/reference tách riêng; không copy nguyên prototype thành Unity contract.
+9. **Authoring owner là project decision.** External tool/Unity Editor/generator đều first-class; runtime chỉ đọc canonical data.
+10. **Reasoning ở frontier, mechanics ở script, execution ở worker.** Generated updater transient; manifest/conformance/Docs persistent.
 
 ---
 

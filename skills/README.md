@@ -21,7 +21,8 @@
 | "làm feature X" · cần spec đầy đủ gameplay + visual + editor | `spec-feature/` |
 | prototype · GDD chưa lock · cần spec nhanh để thử | `spec-feature/refs/spec-lite.md` |
 | procedural mesh · runtime generation · save architecture · custom rendering · editor foundation · rủi ro performance lớn | `technical-slice/` |
-| level editor · tool cho GD · authoring window · UI Toolkit · editor UX/responsive/splitter/input | `level-editor/` |
+| external Level Editor · HTML authoring · export level JSON · generator · cần quyết định author level ở đâu | `authoring-pipeline/` |
+| level editor · Unity authoring window · UI Toolkit · editor UX/responsive/splitter/input | `level-editor/` |
 | "animation này chưa đã" · chuyển động · tween · juice · có video ref | `game-feel-motion/` |
 | độ khó · level generation · DDA · difficulty curve · booster trigger · "level dễ quá / khó quá" | `difficulty-design/` |
 | giải thích cơ chế cho GD · viết tooltip · chốt open question với GD · GD đọc số liệu sai | `gd-communication/` |
@@ -36,7 +37,8 @@
 | repo trống, mới có GDD | `playbooks/p1-bootstrap.md` |
 | chưa biết rủi ro kỹ thuật có làm được không | `playbooks/p2-technical-slice.md` |
 | cần chơi được vòng cơ bản | `playbooks/p3-core-loop.md` |
-| GD cần tự làm level | `playbooks/p4-level-editor.md` |
+| cần chốt GD author ở đâu / external tool / generator | `playbooks/p4-authoring-pipeline.md` |
+| đã chốt Unity Editor là authoring owner | `playbooks/p4-level-editor.md` |
 | cần kiểm soát độ khó | `playbooks/p5-difficulty.md` |
 | chạy đúng rồi nhưng chưa đã tay | `playbooks/p6-feel-pass.md` |
 | chuẩn bị build thật | `playbooks/p7-ship.md` |
@@ -48,7 +50,8 @@ Feature mới có GDD rõ     → spec-feature → code-style → verification
 Feature mơ hồ             → enrich-context → visualiser → spec-lite
 Rủi ro kỹ thuật           → technical-slice → code-style
 "Chuyển động chưa đã"     → game-feel-motion (+ visualiser) → code-style
-Tool cho GD               → level-editor (+ enrich-context) → gd-communication
+Authoring pipeline         → authoring-pipeline → external tool / generator / level-editor branch
+Tool Unity cho GD          → authoring-pipeline → level-editor (+ enrich-context) → gd-communication
 Cân bằng độ khó           → difficulty-design (+ visualiser) → gd-communication
 Bug dai                   → enrich-context → debug-audit
 Visual race / pooled handoff → presentation-lifecycle (+ debug-audit nếu chưa có evidence)

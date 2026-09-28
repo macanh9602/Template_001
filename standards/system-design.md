@@ -37,13 +37,14 @@ tiên được phép quyết.
 | **Visual** | `<Feature>/Visual` | render + animate từ data, tween, VFX, SFX cue | quyết định gameplay, đọc rule |
 | **Bridge** | `Bridge/` | dịch giữa gameplay ↔ HUD / meta / analytics | 2 chiều tuỳ tiện — chỉ một hướng rõ |
 | **HUD / UI** | project UI stack qua presenter/bridge | hiện state, nhận input UI | chứa gameplay rule |
-| **Editor / Tool** | `Editor/` (UI Toolkit) | authoring, validate, preview, playtest | là dependency của runtime |
+| **Authoring / Tool** | external tool / `Editor/` / generator | authoring, validate, preview, export canonical data | runtime phụ thuộc authoring UI/tool |
 
 Luật rút gọn, thuộc lòng:
 
 - **Domain không phụ thuộc Visual.** Visual không quyết gameplay.
 - **RuntimeState per-level**, tạo mới mỗi lần load, truyền qua parameters — không static.
-- **Editor phụ thuộc Runtime, không bao giờ ngược lại.**
+- **Authoring UI/tool không phải runtime dependency.** Unity Editor tool có thể phụ thuộc Runtime; external tool giao tiếp qua canonical versioned data.
+- GD cần làm level **không đồng nghĩa** phải có Unity Level Editor. Chọn authoring owner ở `Docs/project-context.md`.
 - **Xoá sạch tầng Visual thì Domain vẫn chạy hết ván và ra đúng kết cục.** Đây là phép thử duy nhất
   cần nhớ để biết ranh giới có bị vi phạm chưa.
 

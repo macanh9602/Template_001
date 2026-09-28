@@ -124,7 +124,28 @@ của mọi level đổi mà không ai được báo.
 
 ---
 
-## 8. Trước khi báo DONE
+## 8. Execution lifecycle — IMPLEMENTED ≠ DONE
+
+Dùng execution state ở roadmap/story:
+
+| State | Nghĩa |
+|---|---|
+| `PLANNED` | capability mới ở roadmap, chưa mở |
+| `LOCKED` | semantics/dependency đã biết nhưng gate trước chưa mở |
+| `EXECUTABLE` | đủ input + gate, worker được bắt đầu |
+| `IMPLEMENTING` | đang code |
+| `IMPLEMENTED` | code/scope xong; closure evidence có thể còn pending |
+| `VERIFYING` | đang chạy closure evidence |
+| `BLOCKED` | dependency/decision/evidence gate chặn |
+| `DONE` | mọi required closure gate PASS |
+| `SUPERSEDED` | historical, không execute |
+
+Hard dependency/entry gate khác manual acceptance thông thường:
+nếu packet ghi `ENTRY/HARD GATE`, `PENDING` nghĩa là **BLOCKED downstream**.
+
+---
+
+## 9. Trước khi báo DONE
 
 ```
 [ ] Compile pass, console sạch (không error/warning mới do story gây ra)

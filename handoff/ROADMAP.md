@@ -10,12 +10,24 @@
 **Project mode:** GREENFIELD / EXISTING_PROJECT_ADOPTION
 **Playbook đang chạy:** `playbooks/pX-....md`
 **Gate hiện tại:** [readiness / foundation / technical slice / ...]
-**Story executable duy nhất:** [story path hoặc NONE]
+**Executable worker packet/story duy nhất:** [path hoặc NONE]
+**Execution state:** PLANNED / LOCKED / EXECUTABLE / IMPLEMENTING / IMPLEMENTED / VERIFYING / BLOCKED / DONE / SUPERSEDED
 **Mốc gần nhất:** [observable capability]
 
 ---
 
 ## Materialization rule
+
+Canonical execution status:
+
+```text
+PLANNED → LOCKED → EXECUTABLE → IMPLEMENTING → IMPLEMENTED → VERIFYING → DONE
+                                  ↘ BLOCKED
+SUPERSEDED = historical, never executable
+```
+
+`IMPLEMENTED` nghĩa là code/scope đã tồn tại. `DONE` chỉ khi required closure evidence/gate PASS.
+Tại một thời điểm chỉ có **một executable worker packet/story** trừ khi roadmap ghi rõ các packet độc lập không chạm ownership/file.
 
 - Phase/capability phía trước có thể ghi ngắn ở roadmap.
 - **Chỉ story gần nhất sau gate hiện tại được materialize thành execution spec đầy đủ.**

@@ -27,6 +27,10 @@ SAU ĐÓ INSPECT CÓ MỤC ĐÍCH, KHÔNG SCAN VÔ HẠN:
 - Code/template cũ: generic reusable vs project/game-specific.
 - Có root song song hoặc owner trùng responsibility không.
 - Có story downstream nào đã materialize dù architecture/foundation chưa PASS không.
+- Product input là GDD-only, executable prototype, reference game/video hay existing runtime.
+- Level được author trong Unity, external tool, generator hay manual data.
+- Nếu có prototype/external tool: area nào authoritative/oracle/reference; có contradiction chưa resolve không.
+- Có conformance fixture/oracle cho semantic behavior critical không.
 
 KHÔNG ĐƯỢC TRONG PASS NÀY:
 - Không tạo root `_Core/Scripts` nếu project đang dùng `_Core/4_Scripts`, hoặc ngược lại.
@@ -41,6 +45,10 @@ OUTPUT BẮT BUỘC:
 ## PROJECT READINESS
 
 - Mode: GREENFIELD | EXISTING_PROJECT_ADOPTION
+- Product input: GDD_ONLY | EXECUTABLE_PROTOTYPE | REFERENCE_GAME | VIDEO_MOCKUP | EXISTING_RUNTIME
+- Level authoring mode: UNITY_EDITOR | EXTERNAL_TOOL | GENERATED | MANUAL_JSON | NONE_YET
+- Prototype authority contract: NONE | <path>
+- Conformance oracle: NONE | <name/version/path>
 - Identity: PASS | FAIL
 - Canonical script root: <path> | UNRESOLVED
 - Canonical prefab root: <path> | UNRESOLVED
@@ -79,6 +87,8 @@ YES chỉ khi:
 - assembly strategy không tự mâu thuẫn dependency hiện tại;
 - scene ownership rõ;
 - data source-of-truth rõ;
+- authoring source/canonical exported data rõ nếu project cần level/content authoring;
+- executable prototype/oracle không còn contradiction có thể đổi semantic implementation;
 - runtime architecture docs không mâu thuẫn repo thật;
 - active story kế tiếp không phụ thuộc contract chưa chốt.
 

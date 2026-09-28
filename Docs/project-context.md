@@ -46,6 +46,11 @@ Primary platform: Mobile
 | Fact | Giá trị | |
 |---|---|---|
 | Project mode | `GREENFIELD` / `EXISTING_PROJECT_ADOPTION` | 🔒 |
+| Product input | `GDD_ONLY` / `EXECUTABLE_PROTOTYPE` / `REFERENCE_GAME` / `VIDEO_MOCKUP` / `EXISTING_RUNTIME` | 🔒 |
+| Level authoring mode | `UNITY_EDITOR` / `EXTERNAL_TOOL` / `GENERATED` / `MANUAL_JSON` / `NONE_YET` | 🔒 |
+| External authoring source | none / path + format | |
+| Prototype authority contract | none / path | 🔒 |
+| Conformance oracle | unavailable / path + name/version | |
 | Namespace root `[GameRoot]` | | 🔒 |
 | Class name prefix | none / ... | |
 | Unity version | | |
@@ -134,6 +139,16 @@ Xem `handoff/ROADMAP.md`.
 | Reference | Vai trò | Có phải source of truth? | Có bắt buộc để bootstrap? |
 |---|---|---|---|
 | | architecture/style/gameplay reference | yes/no | yes/no |
+
+### Prototype / authoring authority
+
+Nếu project nhận executable prototype, external Level Editor, simulator/solver hoặc runtime cũ:
+
+- không coi cả source là authoritative mặc định;
+- classify từng area: `AUTHORITATIVE / ORACLE / REFERENCE / OUT_OF_SCOPE`;
+- ghi contract theo `templates/prototype-authority-contract.md`;
+- executable engine/solver/evaluator nên sinh `reference/conformance/` khi có thể;
+- external authoring tool đã đủ workflow ⇒ Unity chỉ cần canonical import/load/validate, không duplicate Level Editor.
 
 Rules:
 

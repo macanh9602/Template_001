@@ -1,0 +1,34 @@
+{
+  "manifestVersion": 1,
+  "project": {
+    "name": "[PROJECT]",
+    "reason": "[WHY THIS BOOTSTRAP EXISTS]"
+  },
+  "operations": [
+    {
+      "operation": "add",
+      "path": "relative/path.txt",
+      "contentBase64": "",
+      "expectedBeforeSha256": null
+    },
+    {
+      "operation": "replace",
+      "path": "relative/existing.txt",
+      "contentBase64": "",
+      "expectedBeforeSha256": "OPTIONAL_SHA256"
+    },
+    {
+      "operation": "delete",
+      "path": "relative/obsolete.txt",
+      "expectedBeforeSha256": "OPTIONAL_SHA256"
+    }
+  ],
+  "preserve": [
+    "Assets/.../user-authored-data"
+  ],
+  "verification": [
+    "git diff --check",
+    "Unity compile/console baseline",
+    "targeted fixture/conformance tests"
+  ]
+}

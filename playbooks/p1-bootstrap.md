@@ -7,6 +7,23 @@ Mục tiêu không phải "có gameplay". Mục tiêu là **không tạo rework 
 
 ---
 
+## Bước -1 — Classify product input / authoring source
+
+Nếu đầu vào có executable prototype, external Level Editor, reference implementation, simulator/solver hoặc runtime cũ,
+chạy `workflow/prototype-to-contract.md` **trước** khi worker Unity diễn giải source.
+
+Chốt trong `Docs/project-context.md`:
+
+- Product input.
+- Level authoring mode.
+- Authority theo từng area.
+- Canonical exported level/data source.
+- Conformance oracle/fixtures nếu executable logic tồn tại.
+
+Không build Unity Level Editor chỉ vì GD cần làm level. Route authoring bằng `skills/authoring-pipeline/`.
+
+---
+
 ## Bước 0 — Phân loại project trước khi tạo/sửa bất kỳ code nào
 
 Chạy `handoff/PROJECT-READINESS-PROMPT.md`.
@@ -102,6 +119,12 @@ Trả lời rồi ⇒ ghi vào `Docs/project-context.md §7` để không hỏi 
 
 Nếu `project-context`, `runtime-architecture` và code/folder thật **mâu thuẫn nhau**, chưa được tạo foundation code mới. Sửa contract trước.
 
+### Conformance gate
+
+Nếu một executable prototype/oracle được đánh dấu `AUTHORITATIVE` hoặc `ORACLE`, tạo fixture critical theo
+`templates/conformance-pack/` trước khi lower-reasoning worker implement semantic core.
+Worker không được phải đọc toàn prototype để tự đoán expected behavior.
+
 ---
 
 ## Bước 4 — Folder + assembly: preserve-first
@@ -128,6 +151,24 @@ Checklist:
 - [ ] Assembly strategy phản ánh dependency thật, không phải skeleton mong muốn.
 - [ ] Namespace root đã lock trước file production đầu tiên.
 - [ ] Existing reusable module được audit theo file/module, không copy gameplay semantics mù quáng.
+
+---
+
+## Bước 4A — Bootstrap Manifest + mechanical patch
+
+Sau khi project/data/authority contract đã lock, frontier/planning layer lập `bootstrap-manifest.json`:
+
+- add / replace / delete exact file;
+- preserve user-authored/dirty data;
+- scaffold/fixture/doc nào được generate;
+- expected-before hash cho destructive operation khi hữu ích;
+- verification sau apply.
+
+Dùng `templates/project-bootstrap.ps1` hoặc generated project-specific `.ps1`.
+Generated wrapper là **transient**: giữ tới khi diff + compile/review PASS, commit xong thì delete.
+Giữ manifest/report nếu chúng giải thích project state.
+
+Script chỉ làm mechanical work; không chứa architecture/product reasoning.
 
 ---
 

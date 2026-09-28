@@ -1,0 +1,17 @@
+{
+  "caseId": "case-001",
+  "oracle": {
+    "name": "[prototype/solver/evaluator]",
+    "version": 1
+  },
+  "input": {
+    "level": {},
+    "initialState": {},
+    "commands": []
+  },
+  "expected": {
+    "state": {},
+    "events": [],
+    "result": "IN_PROGRESS"
+  }
+}

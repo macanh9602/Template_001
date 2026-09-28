@@ -1,5 +1,31 @@
 # Pack version
 
+## v4.5.1 — 2026-09-28
+
+**Bootstrap workflow repair**
+
+- `templates/worker-packet.md` ghi explicit `IMPLEMENTED != DONE` để verifier và worker dùng cùng invariant.
+- `CLAUDE.md` ghi rõ hard entry gate thắng rule generic `PENDING MANUAL`.
+- `templates/project-bootstrap.ps1` persist `bootstrap-report-<timestamp>.md` mặc định, thay vì chỉ giữ report trong memory.
+
+---
+
+## v4.5 — 2026-09-28
+
+**Prototype → contract → bootstrap automation → worker packet workflow**
+
+- Thêm `workflow/prototype-to-contract.md` + `templates/prototype-authority-contract.md`: executable prototype/external tool được classify theo từng authority area, không copy nguyên file thành contract.
+- Thêm `skills/authoring-pipeline/` + `playbooks/p4-authoring-pipeline.md`: GD authoring có thể là external tool, Unity Editor, generator hoặc manual data; Unity LE không còn là default assumption.
+- Thêm `templates/conformance-pack/`: executable engine/solver/evaluator có thể trở thành semantic oracle cho Unity tests.
+- Thêm `templates/bootstrap-manifest.json`, `templates/project-bootstrap.ps1`, `workflow/bootstrap-patch.md`: frontier model quyết định add/replace/delete/preserve; script làm mechanical work deterministic.
+- Generated project-specific `.ps1` là transient; canonical Docs + manifest/report/conformance là persistent.
+- Thêm `templates/worker-packet.md` cho lower-reasoning worker: locked semantics, hard entry gate, baseline, conformance và forbidden scope rõ.
+- Chuẩn hoá execution status: `PLANNED / LOCKED / EXECUTABLE / IMPLEMENTING / IMPLEMENTED / VERIFYING / BLOCKED / DONE / SUPERSEDED`; `IMPLEMENTED != DONE`.
+- Hard entry gate có precedence cao hơn rule generic `PENDING MANUAL`: dependency gate PENDING ⇒ BLOCKED, không implement downstream.
+- P1/readiness/project-context bổ sung Product Input, Level Authoring Mode, authority/oracle và bootstrap-manifest flow.
+
+---
+
 ## v4.4 — 2026-09-28
 
 **Bootstrap/adoption anti-rework pass — harvest từ SE-001 foundation**
