@@ -1,5 +1,18 @@
 # Pack version
 
+## v4.6 — 2026-09-28
+
+**Art placeholder từ GD HTML — `skills/art-gen/`**
+
+- Thêm `skills/art-gen/` + refs (`art-manifest.md`, `gen-2d.md`, `export-3d.md`): HTML GD → art manifest (model trích, GD duyệt, HARD GATE) → style lock → gen → intake deterministic.
+- Phân loại element theo `kind`; element có shape/size theo level data → gen **mảnh** (tileset / cap-body), Unity lắp. Biến thiên không phải cell/độ dài một trục → `procedural` → technical-slice.
+- 2D: image model gen từng element (batch ≤ 10, cùng group, style anchor); **không** để model ghép atlas/đặt tên cuối — script validate, SpriteAtlas do Unity pack.
+- 3D: prop tĩnh dựng trong three.js → `.glb` (một mesh, palette texture chung, một material slot) → `asset-intake` (D-005). Unity không gen lại mesh từ data HTML.
+- Phase −1 Normalize (`refs/normalize.md`): GD không phải đổi cách vibe; model tạo `<name>.art.html` + `art-extract.json` từ bản gốc read-only, regenerate khi hash đổi, parity gate bằng screenshot diff (`parity.py`). Chỉ xin GD ảnh style ref.
+- Chưa có: script intake 2D, Postprocessor sprite sidecar, Unity assembler cho modular — là story riêng.
+
+---
+
 ## v4.5.1 — 2026-09-28
 
 **Bootstrap workflow repair**

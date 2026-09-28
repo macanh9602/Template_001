@@ -32,6 +32,7 @@ Khong hoi lai thu cac file do da tra loi.
 | Loai asset | Nguon | Vi sao |
 |---|---|---|
 | Parametric / hard-surface (khay, hop, tru, khoi) | GPT web sinh `.obj` | Mo ta duoc bang so, khong can nhin |
+| Prop tinh da dung san trong HTML three.js cua GD | `.glb` export tu HTML — xem `skills/art-gen/refs/export-3d.md` | Nguon hinh o mot noi, GD da nhin preview |
 | Props stylized co silhouette | Worker + blender-mcp | Can vong render–sua |
 | Organic / character | Artist | LLM lam kem, dung ep |
 | Bien the tu base da co | Worker | Base da chuan, chi can modifier |

@@ -18,6 +18,7 @@ Ghi vào `Docs/project-context.md`:
 - Prototype authority theo **từng area**, không theo cả file.
 
 Một executable prototype có thể authoritative cho gameplay/data nhưng chỉ reference cho visual/feel.
+Visual `REFERENCE` từ HTML → asset placeholder đi qua `skills/art-gen/` (art manifest, style lock, gen, intake).
 
 ---
 

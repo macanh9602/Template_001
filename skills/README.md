@@ -26,6 +26,7 @@
 | "animation này chưa đã" · chuyển động · tween · juice · có video ref | `game-feel-motion/` |
 | độ khó · level generation · DDA · difficulty curve · booster trigger · "level dễ quá / khó quá" | `difficulty-design/` |
 | giải thích cơ chế cho GD · viết tooltip · chốt open question với GD · GD đọc số liệu sai | `gd-communication/` |
+| GD gửi HTML cần đồ họa · "gen art/UI/sprite từ html" · "xuất model 3D từ html" · art manifest · style lock | `art-gen/` |
 | có model rồi · "đưa asset vào Unity" · sai scale/pivot · kiểm tra tri budget · export Blender → Unity · asset artist vừa giao | `asset-intake/` |
 | bug lặp lại · fix rồi vẫn lỗi · cần data thật | `debug-audit/` |
 | pooled visual · tween/async chồng nhau · queue/slot shift · handoff · stale callback · overlap khi tap nhanh | `presentation-lifecycle/` |
@@ -56,6 +57,7 @@ Cân bằng độ khó           → difficulty-design (+ visualiser) → gd-com
 Bug dai                   → enrich-context → debug-audit
 Visual race / pooled handoff → presentation-lifecycle (+ debug-audit nếu chưa có evidence)
 GD hiểu sai số liệu       → gd-communication
+Art placeholder từ HTML   → art-gen → (2D) manage-sprite-atlas · (3D) asset-intake
 ```
 
 ## Luật chung cho mọi skill
