@@ -1,45 +1,58 @@
 # Mobile Game Template — Code + Agent Pack
 
-Template dùng chung cho mọi project mobile game mới. Gồm **hai nửa**:
+Template dùng chung cho mobile game Unity, gồm hai nửa:
 
 | Nửa | Nội dung | Vai trò |
 |---|---|---|
-| `Assets/` | MDATools, AMZG, plugins (DOTween, Odin, Dreamteck), `_Core` skeleton | code tái sử dụng |
-| Pack ở root | `AGENTS.md`, `standards/`, `workflow/`, `Docs/`, `skills/`, `playbooks/`, `templates/`, `knowledge/`, `handoff/` | cách làm việc với agent |
+| `Assets/` | reusable modules/plugins + `_Core` project skeleton | runtime/editor baseline |
+| Pack ở root | `AGENTS.md`, `standards/`, `workflow/`, `Docs/`, `skills/`, `playbooks/`, `templates/`, `knowledge/`, `handoff/` | cách agent làm việc |
 
-Mục tiêu: **mô tả rõ requirement → agent + skill + template triển khai được toàn diện**, và
-**tầng hệ thống của mọi game giống nhau** để không phải học lại kiến trúc mỗi lần mở game mới.
-
----
-
-## Hai nhóm thư mục — phân biệt trước khi làm gì khác
-
-```
-KHÔNG SỬA khi làm game mới          ĐIỀN mỗi game
-────────────────────────────        ──────────────────────
-standards/   tầng hệ thống          Docs/       game này là gì
-workflow/    cách làm việc          handoff/    roadmap + story
-skills/      phương pháp
-playbooks/   thứ tự giai đoạn
-templates/   khung để copy
-knowledge/    kho dùng lại
-```
-
-Muốn lệch khỏi `standards/` → ghi vào `AGENTS.md §10 Project overrides` **và** một entry `D-xxx`
-trong `Docs/decision-log.md`. Đừng sửa file trong `standards/`.
+Mục tiêu: **giảm rework khi mở project mới hoặc adopt project hiện hữu**, bằng cách chốt project contract trước khi agent tạo architecture/folder/story downstream.
 
 ---
 
-## Bootstrap một project mới
+## Hai mode bootstrap
+
+### 1. `GREENFIELD`
+
+Repo thật sự mới, chưa có runtime ownership/code structure đáng giữ.
+
+- Default production script root của Template: `Assets/_Core/4_Scripts`.
+- Dùng standard làm baseline.
+- Chỉ tạo folder/class có responsibility thật.
+
+### 2. `EXISTING_PROJECT_ADOPTION`
+
+Project đã có code/scene/prefab/module/package/flow.
+
+- **Inspect → harvest → confirm contract → xử lý adoption gaps.**
+- Project thật thắng skeleton generic.
+- Không tạo root song song chỉ vì path default khác.
+- Không tách asmdef trước khi audit dependency.
+- Không migrate folder/namespace trong bootstrap nếu chưa có decision riêng.
+
+Bắt đầu bằng `handoff/PROJECT-READINESS-PROMPT.md`.
+
+---
+
+## Bootstrap flow
 
 ```text
-1. Copy toàn bộ nội dung Template/ vào root repo Unity mới.
-2. Mở agent tại root repo, gửi handoff/START-PROMPT.md.
-   → agent chạy playbooks/p1-bootstrap.md
-3. Agent khảo sát repo, đề xuất PROJECT FACTS, hỏi trắc nghiệm cái nào cần dev chốt.
-4. Đặt GDD / video ref vào reference/.
-5. Agent tóm tắt core loop + liệt kê chỗ GDD mơ hồ + đề xuất ROADMAP → dừng chờ confirm.
-6. Chốt roadmap → viết story đầu tiên (templates/story.md) → chạy handoff/RUN-STORY-PROMPT.md.
+0. Copy Template hoặc mở project đã adopt Template
+1. Chạy handoff/PROJECT-READINESS-PROMPT.md
+2. Resolve:
+   - project mode
+   - canonical script/prefab/scene roots
+   - namespace
+   - assembly reality/strategy
+   - scene ownership
+   - data source of truth
+   - runtime authority
+3. Ghi contract vào Docs/project-context.md + decision-log
+4. Chạy playbooks/p1-bootstrap.md
+5. Chỉ implement foundation gap cần thiết
+6. Roadmap mô tả capability/phases
+7. Chỉ materialize story executable kế tiếp sau gate PASS
 ```
 
 ---
@@ -47,91 +60,107 @@ trong `Docs/decision-log.md`. Đừng sửa file trong `standards/`.
 ## Cấu trúc pack
 
 ```text
-AGENTS.md                     guardrail · Always / Never / Escalation / DoD
-CLAUDE.md                     pointer ngắn
-PACK-VERSION.md               changelog của pack
+AGENTS.md
+CLAUDE.md
+PACK-VERSION.md
 
-standards/                    ── HẰNG SỐ ──
-  system-design.md            tầng hệ thống blueprint: layer · contract · nơi chỉnh số · lifecycle
-  folder-structure.md         folder · namespace · asmdef · naming
-  code-style.md               cách viết code Unity
-  performance-budget.md       ngân sách mobile + CÁCH ĐO từng chỉ số
-  anti-patterns.md            sổ bug đã trả giá — lớn dần qua các project
+standards/
+  system-design.md
+  folder-structure.md
+  code-style.md
+  performance-budget.md
+  anti-patterns.md
 
-workflow/                     ── HẰNG SỐ ──
-  loop.md                     vòng 7 bước · story sizing S/M/L
-  ask-and-visualise.md        luật hỏi trắc nghiệm + khi nào bắt buộc dựng .html
-  decisions.md                cách viết D-xxx · supersede · đính chính
-  verification.md             Unity MCP · trạng thái verify trung thực · evidence
-  harvest.md                  cuối story/project rút gì về pack
+workflow/
+  loop.md
+  ask-and-visualise.md
+  decisions.md
+  verification.md
+  harvest.md
 
-Docs/                         ── ĐIỀN ──
-  project-context.md          game này là gì + PROJECT FACTS TO CONFIRM
-  runtime-architecture.md     instance của standards/system-design cho game này
-  data-model.md               source of truth / generated / runtime state
-  decision-log.md             D-xxx, append-only
-  glossary.md                 một khái niệm một tên — dùng chung GD ↔ dev ↔ code
+Docs/
+  project-context.md
+  runtime-architecture.md
+  data-model.md
+  decision-log.md
+  glossary.md
 
-skills/                       ── load theo trigger, không load hết ──
-  README.md                   BẢNG TRA
-  enrich-context/SKILL.md     phanh — hỏi cho đủ trước khi kết luận
-  spec-feature/               SKILL.md + refs/spec-lite.md
-  technical-slice/SKILL.md    lát cắt kỹ thuật có kết luận đo được
-  level-editor/               SKILL.md + refs/{checklist,anti-patterns}.md
-  game-feel-motion/           SKILL.md + refs/video-ref-analysis.md
-  difficulty-design/          SKILL.md + refs/bot-and-metrics.md
-  gd-communication/SKILL.md   nói chuyện với người không đọc code
-  debug-audit/SKILL.md        instrument → đọc data thật → mới kết luận
+skills/
+playbooks/
+templates/
+knowledge/
 
-playbooks/                    ── chuỗi việc theo giai đoạn ──
-  README.md
-  p1-bootstrap · p2-technical-slice · p3-core-loop · p4-level-editor
-  p5-difficulty · p6-feel-pass · p7-ship
-
-templates/                    ── copy rồi điền ──
-  story.md · implementation-notes.html · decision-record.md
-  open-questions.html · gd-brief.html · option-picker.html · visualiser-base.html
-
-knowledge/                      ── kho dùng lại, lớn dần qua project ──
-  motion/     vocabulary.md · presets.json · playground.html
-  feel/       checklist.md
-  difficulty/ metric-vocabulary.md · pipeline-patterns.md
-  editor-ux/  update-model.md · validation-surfacing.md
-
-handoff/                      ── ĐIỀN ──
-  ROADMAP.md · START-PROMPT.md · RUN-STORY-PROMPT.md
-  story-xxx/implementation-notes.html
-
-reference/                    GDD · video ref · doc ngoài (tạo khi cần)
+handoff/
+  PROJECT-READINESS-PROMPT.md
+  ROADMAP.md
+  START-PROMPT.md
+  RUN-STORY-PROMPT.md
+  story-xxx/
 ```
 
 ---
 
-## Bảy nguyên tắc của pack
+## Canonical-root principle
 
-1. **Tầng hệ thống là hằng số.** `standards/system-design.md` giống nhau ở mọi game. Chỉ nội dung
-   Domain và Visual thay đổi, không phải *hình dạng* của hệ thống.
-2. **Decision đi trước code.** Trade-off chưa chốt → hỏi trắc nghiệm có recommend, không tự quyết.
-   Chốt xong ghi lại **cả cái đã loại** và **đánh đổi đã chấp nhận**.
-3. **Thấy trước khi đọc.** Không gian · chuyển động · timing · nhiều biến → dựng `.html` rồi mới bàn.
-4. **Story vừa đủ, không cần chặt.** Story mô tả *goal + boundary + acceptance*, không mô tả *cách code*.
-   Có Unity MCP thì agent tự verify; story không cần liệt kê từng bước.
-5. **Số liệu không nằm trong code.** Prefab field / Profile SO / level data. Đây là điều kiện để
-   GD và art tự chỉnh mà không cần dev.
-6. **Verify trung thực.** `PASS` chỉ ghi khi đã chạy. Chưa chạy được thì ghi `PENDING` + lý do.
-7. **Kho dùng lại lớn dần.** Mỗi story rút ra pattern generic → đẩy về `knowledge/` hoặc skill
-   hoặc `standards/anti-patterns.md`. Đừng để chết trong project.
+Template hiện có code ở:
+
+```text
+Assets/_Core/4_Scripts
+```
+
+Vì vậy greenfield copy từ Template mặc định giữ root này.
+
+Nếu project hiện hữu dùng root khác thì **không tự tạo root thứ hai**. Ghi root thật vào `Docs/project-context.md`. Migration, nếu cần, là story riêng.
+
+Ví dụ lỗi cần tránh:
+
+```text
+Assets/_Core/4_Scripts   ← code/flow đang chạy
+Assets/_Core/Scripts     ← agent tạo thêm vì standard cũ
+```
+
+Điều này tạo hai nơi ownership song song và thường dẫn tới port ngược + sửa docs + sửa scene.
 
 ---
 
-## Feedback loop giữa các project
+## Roadmap: capability trước, story sau
 
-Cuối mỗi story và cuối mỗi project, chạy `workflow/harvest.md`:
+Roadmap được phép biết xa, nhưng execution spec chỉ materialize gần:
 
-| Thấy gì | Đẩy về đâu |
-|---|---|
-| Pattern lặp lại ≥ 2 project | `standards/system-design.md` hoặc `knowledge/` |
-| Câu hỏi phải hỏi lại ≥ 2 lần | thành mục trong `Docs/project-context.md` (template) |
-| Bug loại lặp lại | một dòng trong `standards/anti-patterns.md` |
-| Tween/motion đẹp | preset trong `knowledge/motion/presets.json` |
-| Metric difficulty dùng được | `knowledge/difficulty/metric-vocabulary.md` |
+```text
+Readiness PASS
+  ↓
+Foundation story
+  ↓ PASS
+Technical slice story
+  ↓ PASS
+Core loop story
+  ↓ ...
+```
+
+Không viết sẵn 10–15 story chi tiết khi architecture/foundation chưa verify.
+
+---
+
+## Bảy nguyên tắc
+
+1. **Project reality before template assumption.** Existing project phải inspect trước khi tạo structure mới.
+2. **Một canonical production root.** Không framework tree song song.
+3. **Decision đi trước hard-to-reverse migration.** Folder/asmdef/scene/data ownership là project contract.
+4. **Story materialization lười.** Chỉ story executable kế tiếp sau gate.
+5. **Số liệu không nằm trong code.** Prefab field / Profile SO / level data.
+6. **Verify trung thực.** PASS chỉ khi đã chạy/evidence thật.
+7. **Harvest ngược về Template.** Bug/rework lặp lại phải sửa pack, không trả lại ở project sau.
+
+---
+
+## Feedback loop
+
+Cuối project, chạy `workflow/harvest.md` và đặc biệt hỏi:
+
+- Template assumption nào đã khác project thật?
+- Folder/root/asmdef decision nào bị sửa lại?
+- Story nào bị supersede vì architecture chốt quá muộn?
+- Có dependency/reference nào từng bị coi là blocker nhưng thực ra không cần?
+
+Nếu lặp lại ở project thứ hai, update `standards/`/`playbooks/` thay vì workaround riêng từng repo.

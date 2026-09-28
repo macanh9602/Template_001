@@ -1,142 +1,207 @@
 # Folder & Namespace Convention (generic)
 
-> Không sửa file này khi làm game mới. Chỉ thay `[GameRoot]` bằng namespace root thật
-> (lấy từ `Docs/project-context.md`).
+> File này là guardrail generic. **Không ép project hiện hữu migrate chỉ để giống ví dụ.**
+> Project-specific canonical roots phải được ghi trong `Docs/project-context.md`.
 
-## 1. Hai tư duy — chọn đúng ngay từ đầu
+## 0. Canonical-root rule — một project chỉ có một production script root
+
+### Default của Template này
+
+Template hiện chứa code reusable/project skeleton dưới:
+
+```text
+Assets/_Core/4_Scripts
+```
+
+Vì vậy **greenfield project copy từ Template mặc định dùng `Assets/_Core/4_Scripts`**.
+
+### Existing project adoption
+
+Nếu project đã có script root khác và đang hoạt động tốt:
+
+1. inspect root thật;
+2. ghi root đó vào `Docs/project-context.md`;
+3. giữ nguyên trong bootstrap;
+4. chỉ migrate bằng một decision + migration story riêng nếu có lợi ích rõ.
+
+**Cấm tạo root song song** chỉ để code mới "sạch":
+
+```text
+Assets/_Core/4_Scripts     ← project hiện hữu
+Assets/_Core/Scripts       ← agent tự tạo thêm
+```
+
+Hai tree cùng chứa `Management/`, `Elements/`, `Creation/` là architecture bug, không phải separation.
+
+---
+
+## 1. Hai tư duy — chọn theo ownership
 
 | Tư duy | Khi nào dùng | Namespace |
 |---|---|---|
-| **Layer-first** — module tái sử dụng | copy sang project khác **không cần sửa dòng nào** (ObjectPool, Fluid, VFXPool, AudioSystem) | `MDATools.[Module].[Layer]` |
-| **Feature-first / Screaming** — feature của game | gắn với game cụ thể (Board, Booster, Shop, Tutorial) | `[GameRoot].[Feature].[Context].[Layer]` |
+| **Layer-first** — module tái sử dụng | copy sang project khác không cần sửa gameplay semantics | `MDATools.[Module].[Layer]` |
+| **Feature-first / Screaming** — feature của game | gắn với game cụ thể | `[GameRoot].[Feature].[Context].[Layer]` |
 
-Test một câu: *"Copy folder này sang game khác, có phải sửa dòng nào không?"*
-Không sửa → `MDATools`. Phải sửa → `[GameRoot]`.
+Test: *"Copy module này sang game khác, có phải sửa domain/gameplay semantics không?"*
+Không → reusable module. Có → project feature.
 
-## 2. Cây chuẩn
+---
+
+## 2. Cây khuyến nghị bên trong canonical root
+
+Giả sử canonical root đã chốt là `<GameScriptsRoot>`:
 
 ```text
 Assets/
-  Plugins/                  DOTween · Odin · Dreamteck · third-party   (KHÔNG sửa)
-  AMZG/                     module studio dùng chung: Haptic · SFX · FixResolution · HandCursorUI
-  MDATools/                 tool + module tái sử dụng: ObjectPool · Save · UIBase · Helpers · ResourceAsset
-  _Core/                    TẤT CẢ nội dung của game này
-    Animations/ Fonts/ Materials/ Mesh/ Models/ Shaders/ Texture2D/ VFX/ SFX/
-    Prefabs/
-      <Feature>/            prefab gameplay theo feature
-      UI/                   panel, popup
-      Common/               floating text, marker, effect dùng chung
-    Data/
-      Profiles/             PrefabProfile · TimingProfile · LayoutProfile · MotionProfile · AudioProfile · ColorProfile
-      <Domain>Configs/      SO config authoring theo domain (difficulty, palette...) — editor-only
-    Resources/
-      Data/                 SO cần load runtime qua ResourceAsset<T>
-      Levels/               level JSON
-    Scenes/
-    Scripts/
-      Commons/              interface + type dùng chung             → [GameRoot].Commons
+  Plugins/                  third-party — không sửa nếu không cần
+  AMZG/                     module studio dùng chung
+  MDATools/                 reusable tools/modules
+  _Core/
+    0_Texture2D/
+    1_Materials/
+    2_Models/
+    3_Prefabs/
+    4_Scripts/              ← default của Template; project-context có thể override
+      Commons/
       Data/
-        Level/              DTO level + entity data
-        Serialization/      serializer + migration
-        Templates/          (nếu có) template authoring
-      System/
-        Bootstrapper/       khởi động · profile · pool warmup
-        Creation/           spawner / level loader
-        Management/         RuntimeState · GameFlow · Scheduler · CommandBuffer · InputController
-        Instrumentation/    (nếu có) đo đạc, export
-        Simulation/         (nếu có) trình chơi thử / evaluator
+        Level/
+        Serialization/
+        Profiles/
+      Creation/
       Elements/
         <Feature>/
-          Domain/           rule + state
-          Visual/           render + tween
-          Creation/         factory + create parameters
-          Event/            (tuỳ chọn) event type riêng feature
-      Baking/               generator: Geometry / Graph / Validation   (nếu có procedural)
-      Presentation/         world-space text · marker · camera fx
-      Bridge/               gameplay ↔ HUD / meta / analytics
+          Domain/
+          Visual/
+          Creation/
+          Event/            optional
+      Simulation/           nếu game có custom simulation
+      System/
+        Bootstrapper/
+        Creation/
+        Management/
+        Instrumentation/
+      Presentation/
+      Bridge/
       Editor/
         <Tool>/
-          C#/               partial class của EditorWindow + views
+          C#/
           UXML/
           USS/
-        Localization/       chuỗi GD-facing (ngoài vùng quét ASCII gate)
       Tests/
-        Editor/  PlayMode/
+        Editor/
+        PlayMode/
+    5_Shaders/
+    Scenes/
+    Resources/
+      Levels/
+      Profiles/
 ```
 
-## 3. Luật namespace
+**Không tạo folder rỗng chỉ để "đủ cây".** Tạo khi có responsibility thật.
 
-- **Namespace mirror CHÍNH XÁC folder path.**
-  `_Core/Scripts/Elements/Board/Domain` → `[GameRoot].Board.Domain`.
-- Không namespace trần: `namespace Common` đứng một mình = sai.
-- Tránh dùng `System` làm segment (đụng namespace `System` của .NET) → dùng `Systems`.
-- `[GameRoot]` lấy từ `project-context.md`. **Chưa có → hỏi dev một câu trước khi tạo file đầu tiên**,
-  rồi ghi lại để không hỏi nữa.
-- Module tái sử dụng mặc định root `MDATools`.
-- Nhìn `Scripts/Elements/` top-level phải biết ngay game có feature gì. Chỉ thấy `Managers/`,
-  `Utils/`, `Misc/` → sai tư duy.
+---
 
-## 4. Assembly definition
+## 3. Namespace rule
 
-```
-[GameRoot].Runtime        Scripts/  (trừ Editor, Tests)
-[GameRoot].Editor         Scripts/Editor/           → reference Runtime
-[GameRoot].Tests.Editor   Scripts/Tests/Editor/     → reference Runtime (+ Editor nếu test tool)
-[GameRoot].Tests.PlayMode Scripts/Tests/PlayMode/
+- Namespace root `[GameRoot]` lấy từ `Docs/project-context.md` và phải lock trước file production đầu tiên.
+- Canonical filesystem root (`4_Scripts`, `Scripts`, ...) **không tự động trở thành namespace segment**.
+- Organizational container như `Elements`, `System` có thể được bỏ khỏi namespace nếu project contract đã chốt như vậy; quan trọng là **một rule nhất quán**, không phải mirror literal mọi folder.
+- Không dùng namespace trần kiểu `namespace Common`.
+- Tránh segment `System` ở namespace nếu gây đụng `System` của .NET; có thể dùng `Systems` hoặc namespace theo feature.
+
+Ví dụ với canonical root `Assets/_Core/4_Scripts`:
+
+```text
+Assets/_Core/4_Scripts/Elements/Board/Domain/BoardState.cs
+→ namespace [GameRoot].Board.Domain
 ```
 
-- Editor asmdef **không bao giờ** được reference ngược vào Runtime bằng `#if UNITY_EDITOR` rải rác
-  trong Domain.
-- Rule pure-logic đáng tách riêng (`[GameRoot].Rules`) khi muốn test nhanh không kéo `UnityEngine`.
+Project đã có namespace convention hợp lý ⇒ preserve, ghi trong project-context, không rename hàng loạt ở bootstrap.
 
-### Bẫy asmdef phải xử lý ở story đầu tiên
+---
 
-Code trong `Assembly-CSharp` (folder không có asmdef) compile **sau** mọi asmdef, nên
-`[GameRoot].Runtime` **không thể** reference nó. Nếu `HUDSystem`, `ObjectPool`, `StaticVariables`,
-`AudioController` đang nằm ở `Assembly-CSharp` thì có hai đường:
+## 4. Assembly definition — dependency-first, không skeleton-first
 
-| Hướng | Được | Mất |
+### Default an toàn
+
+Nếu project/template đang compile trong `Assembly-CSharp`, **không tách asmdef chỉ vì standard có thể tách**.
+
+Chỉ thêm asmdef khi có reason thật:
+
+- Editor/runtime isolation;
+- package/module boundary;
+- compile-time dependency cần kiểm soát;
+- test assembly cần reference rõ;
+- build-time/platform split.
+
+### Existing project adoption
+
+Audit trước:
+
+- module reusable nào đang ở `Assembly-CSharp`;
+- DOTween/Odin/package assembly nào đang reference được;
+- Editor code đang nằm đâu;
+- code mới cần dependency gì.
+
+Nếu thêm asmdef làm Runtime không còn gọi được shared module ở `Assembly-CSharp`, không được tự tiếp tục tạo thêm asmdef dây chuyền. Chọn một trong các hướng và ghi decision:
+
+| Hướng | Khi hợp | Trade-off |
 |---|---|---|
-| **(a)** Thêm asmdef cho các module đó (và cho dependency của chúng, ví dụ DOTween) | dependency sạch, reference thẳng | phải dò hết dependency ngoài; blast radius khó chặn trên |
-| **(b)** Đảo dependency bằng interface + bridge — `Commons/` khai `IPool`, `IHudPresenter`, `IInputGate`; `Bridge/` (nằm trong `Assembly-CSharp`) implement bằng class thật; dev gán qua `[SerializeField]` | không đụng module cũ, đúng chiều dependency, test mock được dễ | thêm vài interface mỏng; Runtime không dùng được thư viện chỉ có ở `Assembly-CSharp` |
+| Giữ project assembly hiện tại | prototype/small game, dependency ổn | ít isolation hơn, rework thấp |
+| Thêm asmdef **tại canonical tree** | boundary có giá trị thật | cần audit dependency kỹ |
+| Interface + bridge | muốn tách runtime khỏi legacy/shared code | thêm interface/binding nhưng blast radius nhỏ |
+| Migration module reusable | module thực sự nên độc lập lâu dài | scope riêng, không làm lẫn bootstrap |
 
-**Phải chốt trước dòng code đầu tiên.** Hỏi dev bằng trắc nghiệm, đừng tự chọn — nó quyết định cả
-cách viết tween trong runtime.
+**Không tạo một script root mới để né assembly problem.**
 
-## 5. Đặt tên
+---
+
+## 5. Naming
 
 | Thứ | Quy ước | Ví dụ |
 |---|---|---|
-| Domain component | `<Prefix><Thing>` | `CakeStrip`, `IconTile` |
-| Visual component | `<Prefix><Thing>View` / `Visual` | `CakeStripView` |
-| Decorator | `<Prefix><Thing><State>Decorator` | `CakeStripFrozenDecorator` |
-| Factory | `<Prefix><Thing>Factory` | `CakeStripFactory` |
-| Create parameters | `<Prefix><Thing>CreateParameters` | `CakeStripCreateParameters` |
-| Data DTO | `<Prefix><Thing>Data` | `CakeStripCurveData` |
-| Profile SO | `<Prefix><Kind>Profile` | `CakeTimingProfile` |
-| Runtime state | `<Prefix><Domain>RuntimeState` | `CakeQueueRuntimeState` |
-| Level JSON | `<game>_level_<nnn>.json` | `cake_level_001.json` |
-| Editor window | `<Prefix><Tool>EditorWindow` | `CakeLevelEditorWindow` |
-| Editor partial | `<Window>.<Responsibility>.cs` | `CakeLevelEditorWindow.Inspector.cs` |
+| Domain component | `<Thing>` / `<Prefix><Thing>` theo project | `CakeStrip`, `SandSource` |
+| Visual component | `<Thing>View` / `Visual` | `CupVisual` |
+| Factory | `<Thing>Factory` | `SourceFactory` |
+| Create parameters | `<Thing>CreateParameters` | `SourceCreateParameters` |
+| Data DTO | `<Thing>Data` | `CupData` |
+| Profile SO | `<Kind>Profile` | `SandSimulationProfile` |
+| Runtime state | `<Domain>RuntimeState` | `LevelRuntimeState` |
+| Level JSON | `<game>_level_<nnn>.json` | `sand_level_001.json` |
+| Editor window | `<Tool>EditorWindow` | `LevelEditorWindow` |
+| Editor partial | `<Window>.<Responsibility>.cs` | `LevelEditorWindow.Inspector.cs` |
 
-`<Prefix>` là một từ ngắn của game, thống nhất toàn project, khai trong `project-context.md`.
+Class prefix là project decision, không bắt buộc generic standard.
+
+---
 
 ## 6. Prefab contract — logic ở root, visual ở child
 
-```
-<ElementRoot>                  ← logic, KHÔNG chứa Renderer
+```text
+<ElementRoot>                  ← behavior/composition
 ├── Domain / Visual controller
-├── Collider (nếu cần picking)
-├── Decorator anchor (nếu có)
-└── View/                      ← child duy nhất chứa phần nhìn thấy được
+├── Collider / authored gameplay proxy nếu contract cho phép
+├── Decorator anchor (optional)
+└── View/                      ← replaceable presentation
     ├── MeshFilter / SpriteRenderer / TMP
-    └── MeshRenderer  (shared material từ PrefabProfile)
+    └── Renderer
 ```
 
-- Script **không bao giờ** `GetComponent<Renderer>()` trên chính nó — luôn cache qua
-  `[SerializeField] Transform view` / `[SerializeField] Renderer viewRenderer` gán sẵn trong prefab.
-  Artist đổi mesh trong child không được làm null reference.
-- Không hardcode scale/offset trong code; mọi canh chỉnh nằm ở transform của `View/`.
-- Placeholder cũng là prefab thật, không `CreatePrimitive`.
-- Prefab giữ **số slot/child tối đa**; runtime bật/tắt và reposition theo data. Đổi số trong data
-  không phải mở prefab.
+- Không hardcode visual offset/scale trong domain code.
+- Runtime không `CreatePrimitive`, `new Material`, `Shader.Find` cho production path.
+- Placeholder cũng nên là prefab thật nếu nó sẽ được art replace.
+- Gameplay source-of-truth không được suy ra từ Renderer/Mesh nếu data contract đã có authored geometry.
+
+---
+
+## 7. Migration rule
+
+Folder/namespace/asmdef migration là **một story riêng** nếu nó:
+
+- move nhiều file;
+- đổi namespace public;
+- sửa scene/prefab serialized references;
+- ảnh hưởng assembly/package dependency;
+- làm thay đổi owner/lifecycle.
+
+Bootstrap chỉ được **chốt canonical contract**, không âm thầm thực hiện migration lớn.

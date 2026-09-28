@@ -1,5 +1,41 @@
 # Pack version
 
+## v4.4 — 2026-09-28
+
+**Bootstrap/adoption anti-rework pass — harvest từ SE-001 foundation**
+
+- Thêm `handoff/PROJECT-READINESS-PROMPT.md`: audit-only gate trước active story đầu tiên.
+- `playbooks/p1-bootstrap.md` tách rõ `GREENFIELD` và `EXISTING_PROJECT_ADOPTION`.
+- Canonical root default đồng bộ với asset thật của Template: `Assets/_Core/4_Scripts`.
+- Cấm tự tạo framework root song song (`_Core/Scripts` + `_Core/4_Scripts`). Folder/namespace/asmdef migration phải là decision/story riêng.
+- Assembly strategy đổi từ skeleton-first sang dependency-first: project đang compile trong `Assembly-CSharp` không bị ép tách asmdef sớm.
+- `Docs/project-context.md` bổ sung project mode, canonical roots, assembly reality/strategy, existing-code policy, external-reference policy và adoption gaps.
+- Roadmap dùng capability/gate và **lazy story materialization**: chỉ story executable kế tiếp được viết đầy đủ sau khi gate trước PASS.
+- External `.zip`/reference asset không còn là blocker mặc định; chỉ bắt buộc khi user định nghĩa nó là authoritative source.
+- `START-PROMPT.md` route bootstrap/adoption qua readiness gate trước khi implement.
+
+### Rework pattern được chặn
+
+```text
+standard path ≠ project thật
+→ agent tạo tree mới
+→ foundation implement
+→ project owner sửa canonical root/architecture
+→ port code ngược + rewrite docs + supersede story pack
+```
+
+v4.4 biến bước đầu thành:
+
+```text
+inspect project thật
+→ lock canonical contract
+→ fill adoption gaps
+→ foundation gate
+→ materialize story kế tiếp
+```
+
+---
+
 ## v4.3 — 2026-09-15
 
 **Claude / cross-agent execution adapter**

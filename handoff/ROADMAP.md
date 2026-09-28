@@ -1,62 +1,67 @@
 # Roadmap — [TÊN GAME]
 
-> Bản đồ story. Cập nhật **mỗi khi đóng một story**, không phải mỗi tháng.
-> Sizing theo `workflow/loop.md`: **S** (nửa ngày) · **M** (1–2 ngày) · **L** (chia mốc).
+> Roadmap là **capability map + gate**, không phải lý do để materialize toàn bộ story tương lai.
+> Cập nhật khi đóng gate/story hoặc khi project-level architecture decision đổi.
 
 ---
 
 ## Giai đoạn hiện tại
 
+**Project mode:** GREENFIELD / EXISTING_PROJECT_ADOPTION
 **Playbook đang chạy:** `playbooks/pX-....md`
-**Mốc gần nhất:** [cái gì sẽ chạy được sau 1–2 story tới]
+**Gate hiện tại:** [readiness / foundation / technical slice / ...]
+**Story executable duy nhất:** [story path hoặc NONE]
+**Mốc gần nhất:** [observable capability]
 
 ---
 
-## Story
+## Materialization rule
 
-| # | Tên | Size | Trạng thái | Phụ thuộc | Decision liên quan |
-|---|---|---|---|---|---|
-| 001 | | S/M/L | TODO / DOING / DONE / CUT | | |
-
-Trạng thái theo `workflow/verification.md` — **DONE nghĩa là đã kiểm chứng thật**, không phải
-"code xong".
-
-**Story bị CUT phải ghi lý do cắt.** Cắt mà không ghi lý do thì 2 tháng sau sẽ có người làm lại.
+- Phase/capability phía trước có thể ghi ngắn ở roadmap.
+- **Chỉ story gần nhất sau gate hiện tại được materialize thành execution spec đầy đủ.**
+- Story N+1 không materialize khi Story N còn là architecture/foundation gate chưa PASS.
+- Khi architecture đổi, sửa capability map thay vì xóa/rewrite cả pack story đã viết sẵn.
 
 ---
 
-## Mốc
+## Capability / phase map
 
-| Mốc | Nghĩa là gì (quan sát được từ bên ngoài) | Story cần xong | Trạng thái |
+| Phase | Capability quan sát được | Gate để mở | Trạng thái |
 |---|---|---|---|
-| Vertical slice | đường dây layer thông suốt, element hiện từ data | 001–003 | |
-| Playable loop | vào level → chơi → thắng/thua → chơi lại | | |
-| Editor ready | GD tự làm được level | | |
-| Difficulty measurable | trả lời được "level này khó bao nhiêu" bằng số | | |
-| Feel pass | người ngoài cầm máy thấy đã tay | | |
-| Ship candidate | build release chạy trên thiết bị yếu nhất | | |
+| A | Project readiness + canonical contracts | — | TODO |
+| B | Foundation runtime ownership chạy sạch | A PASS | LOCKED |
+| C | Technical vertical slice rủi ro cao nhất | B PASS | LOCKED |
+| D | Playable core loop | C PASS | LOCKED |
+| E | Level authoring/editor | D PASS hoặc project-specific gate | LOCKED |
+| F | Difficulty / feel / ship | dependency tương ứng | LOCKED |
+
+Không bắt project dùng đúng chữ A–F; đổi tên theo game, nhưng giữ nguyên logic gate.
+
+---
+
+## Active / historical story
+
+| # | Tên | Size | Trạng thái | Dependency | Source |
+|---|---|---|---|---|---|
+| 001 | [story kế tiếp] | S/M/L | EXECUTABLE / TODO | [gate] | `handoff/story-001-.../story.md` |
+
+Trạng thái theo `workflow/verification.md` — DONE nghĩa là đã có evidence thật.
+
+Story bị CUT/SUPERSEDED phải ghi lý do; historical evidence có thể archive thay vì để executable lẫn lộn.
 
 ---
 
 ## Rủi ro đang theo dõi
 
-| Rủi ro | Dấu hiệu sẽ thấy | Ứng phó | Trạng thái |
+| Rủi ro | Evidence | Ứng phó | Trạng thái |
 |---|---|---|---|
 
----
+## Câu hỏi project-level còn mở
 
-## Câu hỏi còn mở ở mức dự án
-
-| Câu hỏi | Owner | Chặn cái gì | Hạn |
+| Câu hỏi | Owner | Chặn gate/story nào | Hạn |
 |---|---|---|---|
-
-Câu hỏi trong phạm vi một story ⇒ `handoff/story-XXX/open-questions.html`, không để ở đây.
-
----
 
 ## Nợ kỹ thuật
 
 | Nợ | Từ story | Vì sao chấp nhận | Phải trả khi |
 |---|---|---|---|
-
-Nợ từ technical slice ghi ở đây ngay khi slice kết thúc, đừng đợi tới lúc ship.

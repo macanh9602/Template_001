@@ -1,19 +1,72 @@
-# P1 — Bootstrap project
+# P1 — Bootstrap / Adopt project
 
-**Vào khi:** repo trống hoặc mới có GDD.
-**Ra khi:** có `Docs/` điền đủ, folder structure dựng xong, một scene chạy được với Bootstrap →
-Profile → một element hiển thị từ data.
+**Vào khi:** repo trống, mới có GDD, hoặc project Unity hiện hữu đang adopt Template.
+**Ra khi:** project identity + architecture contract đã chốt, canonical folder/code root rõ ràng, Docs đủ để story sau không phải đoán lại, và chỉ **story kế tiếp** được materialize khi foundation gate đã PASS.
 
-Mục tiêu không phải "có gameplay". Mục tiêu là **mọi story sau không phải hỏi lại những câu đã hỏi
-ở đây**.
+Mục tiêu không phải "có gameplay". Mục tiêu là **không tạo rework foundation** vì agent tự invent folder, assembly, scene ownership hoặc architecture trước khi hiểu project thật.
 
 ---
 
-## Bước 1 — Đọc GDD, hỏi cho đủ (enrich-context)
+## Bước 0 — Phân loại project trước khi tạo/sửa bất kỳ code nào
+
+Chạy `handoff/PROJECT-READINESS-PROMPT.md`.
+
+Chọn một mode:
+
+| Mode | Khi dùng | Luật |
+|---|---|---|
+| `GREENFIELD` | Repo thực sự mới, chưa có code/folder/runtime ownership đáng giữ | Dùng default của Template |
+| `EXISTING_PROJECT_ADOPTION` | Project đã có `Assets/`, scene, code, prefab, module, package hoặc flow runtime | **Inspect → harvest → confirm contract → chỉ xử lý adoption gaps** |
+
+### Luật cứng cho `EXISTING_PROJECT_ADOPTION`
+
+- Không tạo script root song song chỉ vì `standards/` có một path mặc định khác project thật.
+- Không tạo asmdef mới trước khi audit assembly/dependency hiện tại.
+- Không rewrite scene ownership nếu project đã có flow hợp lý mà chưa có decision đổi.
+- Không "dọn" code cũ bằng namespace/folder migration hàng loạt trong bootstrap.
+- Không materialize cả pack 10–15 story khi architecture/foundation chưa pass.
+- Asset/reference ngoài workspace **không phải blocker mặc định**. Chỉ yêu cầu nếu user nói nó là source of truth bắt buộc.
+
+Nếu project hiện hữu đã chứng minh một contract tốt, **giữ nó** và ghi vào `Docs/project-context.md`; Template thích nghi với project, không ép project reset theo skeleton.
+
+---
+
+## Bước 1 — Inventory + chốt Adoption Contract
+
+Trước khi hỏi gameplay sâu, khảo sát có mục đích:
+
+- Unity version + render pipeline.
+- Script roots đang tồn tại.
+- Prefab / scene / Resources roots.
+- Assembly reality: `Assembly-CSharp`, asmdef nào đang tồn tại, dependency nào kéo theo.
+- Runtime owners đang có: bootstrap, level lifecycle, spawner/factory, gameplay manager, input, HUD.
+- Module reusable và code project cũ/game-specific.
+- Source of truth của level/data hiện tại.
+- Scene trong Build Settings và scene ownership.
+- Placeholder/template remnants có thể gây nhầm identity.
+
+Ghi kết quả vào `Docs/project-context.md §3` và `§8–§9`.
+
+### Chỉ escalate những contract kéo theo toàn project
+
+| Contract | Ví dụ |
+|---|---|
+| Canonical script root | giữ `Assets/_Core/4_Scripts` hay migrate có chủ đích |
+| Namespace root | `SE001`, `CakeRoll`, ... |
+| Assembly strategy | giữ `Assembly-CSharp` hay tách asmdef tại chỗ |
+| Scene ownership | một `GameScene` hay bootstrap scene riêng |
+| Data source of truth | JSON / SO / external authored data |
+| Runtime authority | custom simulation / Rigidbody / hybrid |
+
+Decision local/reversible thì agent tự quyết. Contract project-wide phải ghi `D-xxx`.
+
+---
+
+## Bước 2 — Đọc GDD, hỏi phần project chưa trả lời
 
 Skill: `enrich-context`.
 
-Hỏi theo batch trắc nghiệm. Nhóm câu hỏi tối thiểu:
+Hỏi theo batch trắc nghiệm, nhưng **không hỏi lại thứ inventory/GDD đã trả lời**.
 
 | Nhóm | Cần chốt |
 |---|---|
@@ -23,95 +76,124 @@ Hỏi theo batch trắc nghiệm. Nhóm câu hỏi tối thiểu:
 | Input | tap / drag / swipe / multi-touch; có gì làm cùng lúc không |
 | Thiết bị chuẩn | máy nào là mốc để đo performance |
 | Orientation & tỉ lệ | portrait/landscape; dải aspect ratio phải chịu |
-| Meta | có progression / shop / booster không (chỉ cần biết **có**, chưa cần chi tiết) |
-| Ràng buộc | deadline, team size, thứ bắt buộc dùng lại từ project cũ |
+| Meta | có progression / shop / booster không |
+| Ràng buộc | deadline, team size, thứ bắt buộc dùng lại |
 
-**Không** hỏi những gì GDD đã trả lời. Trả lời rồi ⇒ ghi vào `Docs/project-context.md §7`
-("câu hỏi đã trả lời — không hỏi lại").
+Trả lời rồi ⇒ ghi vào `Docs/project-context.md §7` để không hỏi lại.
 
-## Bước 2 — Điền `Docs/`
+---
 
-Thứ tự điền, mỗi file confirm với dev trước khi sang file sau:
+## Bước 3 — Điền Docs theo thứ tự source-of-truth
 
-1. `Docs/project-context.md` — stack, thiết bị chuẩn, ràng buộc, fact đã chốt (đánh dấu 🔒 cho
-   contract toàn project).
-2. `Docs/glossary.md` — tên các element và khái niệm chính. Làm **sớm**; đổi tên sau khi đã có 50
-   file code là đắt.
-3. `Docs/data-model.md` — cái gì là source of truth, cái gì generated, level data trông thế nào.
-4. `Docs/runtime-architecture.md` — instance hoá `standards/system-design.md` cho game này: layer
-   nào có gì, profile nào giữ số gì.
-5. `Docs/decision-log.md` — mở file, ghi `D-001` cho quyết định đầu tiên đã chốt ở Bước 1.
+1. `Docs/project-context.md`
+   - project mode;
+   - canonical roots;
+   - namespace;
+   - assembly reality/strategy;
+   - scene ownership;
+   - existing-code policy;
+   - target device + performance contract.
+2. `Docs/glossary.md` — tên element/khái niệm chính.
+3. `Docs/data-model.md` — authoring source-of-truth / generated / runtime state.
+4. `Docs/runtime-architecture.md` — map owner/layer vào class/module thật của project.
+5. `Docs/decision-log.md` — ghi project-level decisions đã chốt.
 
-## Bước 3 — Dựng folder + assembly
+### Gate
+
+Nếu `project-context`, `runtime-architecture` và code/folder thật **mâu thuẫn nhau**, chưa được tạo foundation code mới. Sửa contract trước.
+
+---
+
+## Bước 4 — Folder + assembly: preserve-first
 
 Theo `standards/folder-structure.md`.
 
-- [ ] Cây thư mục dựng đủ (kể cả thư mục còn trống)
-- [ ] Quyết định asmdef: chia assembly hay để `Assembly-CSharp` — **chốt ngay bây giờ**, ghi `D-xxx`.
-      Đổi sau tốn hơn nhiều lần.
-- [ ] Namespace mirror theo thư mục
-- [ ] `.gitignore`, `.editorconfig`
-- [ ] Test assembly dựng sẵn (kể cả chưa có test)
+### Greenfield
 
-## Bước 4 — Dựng bộ Profile
+- Dùng canonical root mặc định của Template: `Assets/_Core/4_Scripts`.
+- Tạo **chỉ folder có responsibility thật**; không dựng cây rỗng khổng lồ.
+- Không pre-create asmdef nếu chưa có dependency reason.
 
-Theo `standards/system-design.md §4`. Tạo **đủ 6 profile** kể cả khi còn rỗng — có sẵn chỗ thì
-không ai hardcode:
+### Existing project adoption
 
-| Profile | Giữ gì |
-|---|---|
-| `PrefabProfile` | prefab + shared material, tra theo id |
-| `TimingProfile` | mọi delay/duration của **gameplay** |
-| `MotionProfile` | duration/easing/overshoot của **visual** |
-| `LayoutProfile` | khoảng cách, kích thước, safe area |
-| `AudioProfile` | cue |
-| `ColorProfile` | bảng màu theo state |
-
-Truy cập qua `ResourceAsset<T>` (ngoại lệ static hợp lệ duy nhất — `system-design.md §1`).
-
-## Bước 5 — Vertical slice tối thiểu
-
-Một scene chạy được:
-
-```
-Bootstrap → đọc Profile → Spawner → Factory tạo 1 element từ data → Domain giữ state
-          → Visual hiển thị → HUD hiện 1 giá trị từ Domain
-```
-
-Chưa cần gameplay. Cần chứng minh **đường dây layer thông suốt** và mọi số đến từ data/profile.
+- Giữ script root hiện hữu nếu coherent và dev không yêu cầu migrate.
+- Nếu muốn migrate root/folder/asmdef: viết decision riêng + migration story riêng.
+- Không tạo root thứ hai để "code mới sạch hơn".
+- Namespace và folder organization áp dụng **bên trong canonical root đã chốt**.
 
 Checklist:
 
-- [ ] Element hiện lên từ **level data**, không phải đặt tay trong scene
-- [ ] Đổi một số trong Profile → thấy thay đổi trong game, không sửa code
-- [ ] Không `CreatePrimitive`, không `new Material`, không `Shader.Find`
-- [ ] Có ObjectPool (`VTLTools`) cho loại element sẽ sinh nhiều
-- [ ] Text đi qua prefab TMP có script quản lý (`Init`/`Show`/`Hide`)
-- [ ] Load → unload → load lại level: không rò event, không rò object (kiểm bằng số lượng instance)
+- [ ] Chỉ có **một canonical production script root**.
+- [ ] Không có framework tree song song cùng trách nhiệm.
+- [ ] Assembly strategy phản ánh dependency thật, không phải skeleton mong muốn.
+- [ ] Namespace root đã lock trước file production đầu tiên.
+- [ ] Existing reusable module được audit theo file/module, không copy gameplay semantics mù quáng.
 
-## Bước 6 — Dựng `handoff/`
+---
 
-- [ ] `handoff/ROADMAP.md` — danh sách story dự kiến, sizing S/M/L
-- [ ] Story 001 viết xong theo `templates/story.md`
-- [ ] `handoff/START-PROMPT.md` / `handoff/RUN-STORY-PROMPT.md` đã trỏ đúng tên game
+## Bước 5 — Foundation gap, không dựng framework phòng xa
+
+Chỉ implement capability còn thiếu để chứng minh ownership:
+
+```text
+Bootstrap / Scene owner
+    → Level lifecycle owner
+    → composition/spawn owner
+    → per-level context/state
+    → một entity từ authored data
+    → visual/HUD đọc state
+```
+
+Không bắt buộc tên class cụ thể. Không bắt project hiện hữu rewrite flow chỉ để khớp ví dụ.
+
+Checklist:
+
+- [ ] Một owner duy nhất cho level lifecycle.
+- [ ] Một owner rõ cho composition/spawn/unload.
+- [ ] Runtime state per-level, không global singleton gameplay state.
+- [ ] Data/profile/prefab là nguồn tune; không hardcode.
+- [ ] Load → reload → unload không leak root/context/event.
+- [ ] Production startup không phụ thuộc smoke/debug auto-create ẩn.
+
+---
+
+## Bước 6 — Roadmap theo capability, materialize story lười
+
+`handoff/ROADMAP.md` được phép mô tả **phase/capability** phía trước, nhưng:
+
+- Chỉ story gần nhất sau gate hiện tại được viết thành execution spec đầy đủ.
+- Story N+1 chưa materialize nếu Story N là architecture/foundation gate chưa PASS.
+- Không tạo sẵn 10–15 story chi tiết dựa trên architecture còn chưa verify.
+- Khi một project-level architecture decision đổi, update roadmap capability map; không phải xóa hàng nghìn dòng story đã viết sẵn.
+
+Cuối bootstrap:
+
+- [ ] `handoff/PROJECT-READINESS-PROMPT.md` trả `READY FOR ACTIVE STORY: YES`.
+- [ ] `handoff/ROADMAP.md` có phase/capability + dependency gate.
+- [ ] Chỉ story executable kế tiếp được materialize.
+- [ ] `START-PROMPT.md` / `RUN-STORY-PROMPT.md` trỏ đúng project.
 
 ---
 
 ## Xong khi
 
-- [ ] `Docs/` 5 file điền xong, dev đã confirm
-- [ ] Vertical slice chạy trên **thiết bị thật**, không chỉ Editor
-- [ ] Load/unload sạch
-- [ ] Roadmap + story 001 sẵn sàng
-- [ ] Không còn open question dạng blocker
+- [ ] Canonical production roots khớp giữa repo thật và Docs.
+- [ ] Không có script/framework tree song song ngoài migration có chủ đích.
+- [ ] Assembly strategy đã chốt từ dependency thật.
+- [ ] Scene ownership rõ.
+- [ ] Data source-of-truth rõ.
+- [ ] Runtime ownership đủ để feature story sau không tự invent lifecycle.
+- [ ] Compile/console baseline biết rõ trạng thái.
+- [ ] Roadmap chỉ materialize story kế tiếp.
+- [ ] Không còn open question dạng blocker.
 
-## Bẫy
+## Bẫy đã trả giá
 
 | Bẫy | Hậu quả |
 |---|---|
-| bỏ qua glossary "để sau" | đổi tên khi đã có nhiều code, hoặc sống chung với tên sai |
-| chưa chốt asmdef | phát hiện editor code không tách được khi đã muộn |
-| slice có gameplay nhưng không đi qua đủ layer | phát hiện đường dây gãy ở story thứ 5 |
-| hardcode "tạm" trong slice | "tạm" sống tới lúc ship |
-| chỉ test trong Editor | số performance sai, thứ tự init khác |
-| tạo profile khi cần | mỗi story đẻ một chỗ chứa số mới |
+| standard path khác project thật nhưng agent vẫn tạo root mới | hai framework song song, phải port ngược |
+| tách asmdef trước khi audit Assembly-CSharp/shared modules | dependency blast radius, rework hàng loạt |
+| architecture source-of-truth xuất hiện sau foundation implementation | sửa ownership + scene + docs lần hai |
+| materialize 10–15 story trước architecture gate | xóa/rewrite hàng nghìn dòng handoff |
+| coi asset/reference ngoài workspace là blocker mặc định | mất thời gian xin/copy dữ liệu không cần thiết |
+| "dọn legacy" bằng search/replace namespace hàng loạt | resurrect gameplay semantics project cũ |
