@@ -1,0 +1,16 @@
+﻿{
+  "name": "com.amzg.helpers.outer-wall",
+  "version": "1.0.0",
+  "displayName": "AMZG Outer Wall Helper",
+  "description": "Reusable Unity helper for generating outer wall meshes from manual points, grid rectangles, grid masks, or path points.",
+  "unity": "2021.3",
+  "author": { "name": "AMZG" },
+  "samples": [
+    {
+      "displayName": "Grid Outer Wall Demo",
+      "description": "Small sample notes and preset data for grid-based outer wall generation.",
+      "path": "Samples/GridOuterWallDemo"
+    }
+  ]
+}
+

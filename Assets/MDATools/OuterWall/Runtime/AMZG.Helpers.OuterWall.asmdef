@@ -1,0 +1,14 @@
+﻿{
+  "name": "AMZG.Helpers.OuterWall",
+  "rootNamespace": "AMZG.Helpers.OuterWall",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

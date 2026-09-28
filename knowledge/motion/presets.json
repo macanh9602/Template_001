@@ -1,0 +1,165 @@
+{
+  "$schema": "motion-presets/v1",
+  "note": "Preset dùng chung giữa các project. Trước khi tạo preset mới, tra file này và gộp nếu gần giống. Số ở đây là ĐIỂM KHỞI ĐẦU — giá trị thật của mỗi game nằm trong MotionProfile của game đó, component chỉ giữ presetId.",
+  "conventions": {
+    "durationUnit": "seconds",
+    "overshootUnit": "fraction of target delta (0.15 = vượt 15%)",
+    "easingNames": "linear | easeInQuad | easeOutQuad | easeInOutQuad | easeOutCubic | easeInCubic | easeOutBack | easeInBack | easeOutElastic | easeOutBounce",
+    "phases": "anticipation | action | overshoot | settle | followThrough",
+    "interrupt": "restart | ignore | queue | blend"
+  },
+  "presets": [
+    {
+      "id": "tap.feedback",
+      "use": "Phản hồi tức thì khi chạm bất kỳ thứ gì bấm được. Rẻ nhất, dùng nhiều nhất.",
+      "layer": "immediateCue",
+      "interrupt": "restart",
+      "phases": {
+        "action": { "property": "scale", "from": 1.0, "to": 0.92, "duration": 0.05, "easing": "easeOutQuad" },
+        "settle": { "property": "scale", "to": 1.0, "duration": 0.09, "easing": "easeOutBack" }
+      },
+      "cues": ["audio.click", "haptic.light"]
+    },
+    {
+      "id": "element.appear",
+      "use": "Element xuất hiện lần đầu trên màn hình.",
+      "layer": "mainMotion",
+      "interrupt": "ignore",
+      "phases": {
+        "action": { "property": "scale", "from": 0.0, "to": 1.0, "duration": 0.22, "easing": "easeOutBack" },
+        "overshoot": { "amount": 0.12 }
+      },
+      "stagger": 0.05
+    },
+    {
+      "id": "element.disappear",
+      "use": "Element rời màn hình. Nhanh hơn appear — thứ đi khỏi không đáng để chờ.",
+      "layer": "mainMotion",
+      "interrupt": "restart",
+      "phases": {
+        "anticipation": { "property": "scale", "to": 1.08, "duration": 0.06, "easing": "easeOutQuad" },
+        "action": { "property": "scale", "to": 0.0, "duration": 0.14, "easing": "easeInCubic" }
+      }
+    },
+    {
+      "id": "element.moveTo",
+      "use": "Di chuyển element từ vị trí này sang vị trí khác trong gameplay.",
+      "layer": "mainMotion",
+      "interrupt": "blend",
+      "phases": {
+        "action": { "property": "position", "duration": 0.28, "easing": "easeOutCubic", "path": "arc" },
+        "settle": { "duration": 0.08, "easing": "easeOutQuad" }
+      },
+      "notes": "path=arc gần như luôn tự nhiên hơn đường thẳng. Blend để đổi đích giữa đường không giật."
+    },
+    {
+      "id": "element.snap",
+      "use": "Element khớp vào vị trí đúng — khoảnh khắc cần cảm giác 'ăn khớp'.",
+      "layer": "mainMotion",
+      "interrupt": "ignore",
+      "phases": {
+        "action": { "property": "position", "duration": 0.16, "easing": "easeOutBack" },
+        "overshoot": { "amount": 0.18 },
+        "settle": { "duration": 0.1, "easing": "easeOutQuad" }
+      },
+      "cues": ["audio.snap", "haptic.medium", "vfx.snapRing"]
+    },
+    {
+      "id": "element.reject",
+      "use": "Thao tác không hợp lệ. Phải đọc được là 'không được', không phải 'lỗi game'.",
+      "layer": "immediateCue",
+      "interrupt": "restart",
+      "phases": {
+        "action": { "property": "position", "shape": "shake", "amplitude": 0.06, "cycles": 3, "duration": 0.2, "easing": "easeOutQuad" }
+      },
+      "cues": ["audio.reject", "color.flashInvalid"]
+    },
+    {
+      "id": "element.impact",
+      "use": "Va chạm / trúng đích. Squash theo hướng va chạm.",
+      "layer": "mainMotion",
+      "interrupt": "restart",
+      "phases": {
+        "action": { "property": "scale", "squash": 0.82, "stretch": 1.14, "duration": 0.07, "easing": "easeOutQuad" },
+        "settle": { "property": "scale", "to": 1.0, "duration": 0.16, "easing": "easeOutElastic" }
+      },
+      "cues": ["audio.impact", "haptic.medium", "vfx.impactBurst"]
+    },
+    {
+      "id": "element.idlePulse",
+      "use": "Gợi ý element đang chờ tương tác. Biên độ nhỏ — to quá thành rối mắt.",
+      "layer": "ambient",
+      "interrupt": "ignore",
+      "phases": {
+        "action": { "property": "scale", "from": 1.0, "to": 1.04, "duration": 0.7, "easing": "easeInOutQuad", "loop": "pingpong" }
+      },
+      "notes": "Chỉ bật khi người chơi đứng yên quá N giây. Bật thường trực thì mất tác dụng gợi ý."
+    },
+    {
+      "id": "ui.panelIn",
+      "use": "Panel/popup mở ra.",
+      "layer": "mainMotion",
+      "interrupt": "ignore",
+      "phases": {
+        "action": { "property": "scale", "from": 0.9, "to": 1.0, "duration": 0.22, "easing": "easeOutBack" },
+        "parallel": { "property": "alpha", "from": 0.0, "to": 1.0, "duration": 0.15, "easing": "easeOutQuad" }
+      }
+    },
+    {
+      "id": "ui.panelOut",
+      "use": "Panel/popup đóng. Nhanh hơn mở.",
+      "layer": "mainMotion",
+      "interrupt": "restart",
+      "phases": {
+        "action": { "property": "scale", "to": 0.92, "duration": 0.13, "easing": "easeInQuad" },
+        "parallel": { "property": "alpha", "to": 0.0, "duration": 0.13, "easing": "easeInQuad" }
+      }
+    },
+    {
+      "id": "ui.valueCountUp",
+      "use": "Số tăng dần (điểm, tiền). Kèm scale punch ở mốc để không nhàm.",
+      "layer": "mainMotion",
+      "interrupt": "restart",
+      "phases": {
+        "action": { "property": "value", "duration": 0.6, "easing": "easeOutCubic" }
+      },
+      "notes": "Duration không đổi theo độ lớn của số — đếm từ 0 tới 10000 vẫn 0.6s. Có skip bằng tap."
+    },
+    {
+      "id": "ui.floatingText",
+      "use": "Số/chữ bay lên rồi tan (điểm cộng, combo).",
+      "layer": "aftermath",
+      "interrupt": "queue",
+      "phases": {
+        "action": { "property": "position", "offsetY": 0.8, "duration": 0.7, "easing": "easeOutCubic" },
+        "parallel": { "property": "alpha", "from": 1.0, "to": 0.0, "duration": 0.7, "easing": "easeInQuad", "delay": 0.25 }
+      },
+      "notes": "Đi qua prefab TMP có script quản lý (Init/Show/Hide), pooled — không Instantiate."
+    },
+    {
+      "id": "camera.shakeSmall",
+      "use": "Nhấn mạnh va chạm nhỏ.",
+      "layer": "aftermath",
+      "interrupt": "restart",
+      "phases": {
+        "action": { "property": "cameraOffset", "amplitude": 0.05, "frequency": 22, "duration": 0.18, "decay": "easeOutQuad" }
+      },
+      "notes": "Shake cộng dồn nhiều nguồn sẽ thành rung liên tục — dùng một shake manager cộng biên độ có trần."
+    },
+    {
+      "id": "sequence.win",
+      "use": "Chuỗi ăn mừng khi thắng.",
+      "layer": "sequence",
+      "interrupt": "ignore",
+      "steps": [
+        { "hold": 0.15 },
+        { "preset": "element.impact", "target": "goalObject" },
+        { "preset": "camera.shakeSmall" },
+        { "preset": "ui.valueCountUp", "target": "score", "delay": 0.2 },
+        { "preset": "ui.panelIn", "target": "winPanel", "delay": 0.5 }
+      ],
+      "skippable": true,
+      "notes": "Mọi sequence > 1s phải skip được bằng tap."
+    }
+  ]
+}

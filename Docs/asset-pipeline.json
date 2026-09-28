@@ -1,0 +1,9 @@
+{
+  "pipeline_root": "D:/DucanBag/_Trick/blender-with-chatgpt",
+  "blender": "",
+  "models_dir": "Assets/_Core/Models",
+  "runs_dir": "D:/DucanBag/_Trick/blender-with-chatgpt/runs",
+  "command": "\"{blender}\" -b -P \"{pipeline_root}/pipeline/run.py\" -- --brief {brief} --mesh {mesh} --project-root \"{project_root}\"",
+  "project_root": "D:/DucanBag/Template-v3/Template",
+  "_note": "blender de trong: chay 'python bin/setup.py --project-root ...' tu PowerShell de tu dien, hoac dien tay duong dan blender.exe"
+}

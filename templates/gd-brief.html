@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>[Tên cơ chế] — brief cho GD</title>
+<!--
+  BRIEF CHO NGƯỜI KHÔNG ĐỌC CODE (GD / PM / GĐ).
+  Sai lầm mặc định: giải thích cách hệ thống hoạt động.
+  GD cần biết: HỌ QUYẾT ĐƯỢC GÌ và HỆ QUẢ LÀ GÌ.
+
+  LUẬT (skills/gd-communication/):
+  - Bắt đầu bằng quyết định, không bằng cơ chế.
+  - Mỗi chỉ số kèm cột "KHÔNG nói lên điều gì".
+  - Bảng "anh KHÔNG chỉnh được" thường hữu ích hơn bảng chỉnh được.
+  - Dùng đúng tên trong Docs/glossary.md.
+  - Số liệu luôn kèm điều kiện đo.
+-->
+<style>
+  :root{--bg:#0e1116;--panel:#161b22;--line:#262d38;--tx:#e6edf3;--dim:#8b949e;
+        --acc:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+       font:14.5px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .page{max-width:940px;margin:0 auto;padding:26px 20px 60px}
+  h1{font-size:20px;margin:0 0 4px}
+  .meta{color:var(--dim);font-size:12px;margin-bottom:22px}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+          padding:16px 18px;margin-bottom:14px}
+  h2{font-size:12px;margin:0 0 12px;color:var(--dim);text-transform:uppercase;
+     letter-spacing:.06em;font-weight:600}
+  .lead{font-size:15px;margin:0}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  td.no{color:var(--warn)}
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;margin:4px 0}
+  .step{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:7px 12px}
+  .arr{color:var(--dim)}
+  .cond{font-size:11.5px;color:var(--dim);font-family:ui-monospace,monospace;background:#0d1117;
+        border:1px solid var(--line);border-radius:6px;padding:9px;margin-bottom:12px}
+  .warn{font-size:13px;border-left:2px solid var(--warn);padding-left:12px;color:var(--dim);margin:12px 0 0}
+  .pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:99px;
+        border:1px solid var(--line);color:var(--dim)}
+  .pill.ok{color:var(--ok);border-color:#1f4d2c}
+  .pill.warn{color:var(--warn);border-color:#4d3f14}
+  .pill.bad{color:var(--bad);border-color:#5c2320}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>[Tên cơ chế] — brief cho GD</h1>
+  <div class="meta">Cập nhật YYYY-MM-DD · Story <code>XXX</code> · Tên gọi theo <b>Glossary</b></div>
+
+  <section>
+    <h2>1. Người chơi thấy gì</h2>
+    <p class="lead">[1–3 câu, từ góc nhìn người chơi. Không từ kỹ thuật, không tên class.]</p>
+  </section>
+
+  <section>
+    <h2>2. Anh cần chốt gì</h2>
+    <table>
+      <tr><th>Câu hỏi</th><th>Phương án</th><th>Đề xuất</th><th>Chặn cái gì</th></tr>
+      <tr><td>[câu hỏi]</td><td>A / B / C</td><td><span class="pill ok">A</span> vì [...]</td><td>[...]</td></tr>
+    </table>
+    <div class="warn">Đây là phần quan trọng nhất — đặt lên đầu, không giấu ở cuối.</div>
+  </section>
+
+  <section>
+    <h2>3. Anh chỉnh được gì</h2>
+    <table>
+      <tr><th>Chỉnh cái gì</th><th>Ở đâu</th><th>Miền hợp lệ</th><th>Tăng lên</th><th>Giảm xuống</th></tr>
+      <tr><td>[tên theo glossary]</td><td>[Profile / level editor / level data]</td>
+          <td>[min–max, khoảng thường dùng]</td><td>[hệ quả]</td><td>[hệ quả]</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. Anh KHÔNG chỉnh được (và vì sao)</h2>
+    <table>
+      <tr><th>Cái gì</th><th>Vì sao cố định</th><th>Muốn đổi thì cần gì</th></tr>
+      <tr><td class="no">[...]</td><td>[...]</td><td>[story mới / decision / chi phí]</td></tr>
+    </table>
+    <div class="warn">Bảng này ngăn GD dành thời gian cho thứ không đổi được, và biến
+      “sao không làm được” thành một yêu cầu rõ ràng.</div>
+  </section>
+
+  <section>
+    <h2>5. Cơ chế hoạt động — chỉ phần cần để chỉnh đúng</h2>
+    <div class="flow">
+      <span class="step">[bước 1]</span><span class="arr">→</span>
+      <span class="step">[bước 2]</span><span class="arr">→</span>
+      <span class="step">[bước 3]</span>
+    </div>
+    <div class="warn">Bỏ qua chi tiết implement. GD chỉ cần đủ để chỉnh số đúng hướng.</div>
+  </section>
+
+  <section>
+    <h2>6. Số liệu</h2>
+    <div class="cond">
+      Đo bằng: [công cụ + version] · [policy / tham số] · N=[...] · seed [...] ·
+      normalize theo [tập nào] · hiệu chuẩn: [đã / <b>chưa</b>].
+      Chỉ so được với các số khác <b>trong cùng bảng này</b>.
+    </div>
+    <table>
+      <tr><th>Chỉ số</th><th>Giá trị</th><th>Nói lên</th><th>KHÔNG nói lên</th></tr>
+      <tr><td>[...]</td><td><span class="pill warn">Hard</span></td><td>[...]</td><td>[...]</td></tr>
+    </table>
+    <div class="warn">Hiển thị <b>band</b>, không hiển thị số lẻ — <code>0.634</code> mời gọi
+      so sánh giả. Không vẽ hai trục X khác bản chất lên cùng biểu đồ.</div>
+  </section>
+
+  <section>
+    <h2>7. Bẫy khi chỉnh</h2>
+    <table>
+      <tr><th>Nếu anh làm ...</th><th>Sẽ xảy ra ...</th></tr>
+      <tr><td>[...]</td><td>[...]</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>8. Từ vựng dùng trong tài liệu này</h2>
+    <table>
+      <tr><th>Từ</th><th>Nghĩa chính xác</th><th>KHÔNG phải là</th></tr>
+      <tr><td>[...]</td><td>[...]</td><td>[...]</td></tr>
+    </table>
+    <div class="warn">Một khái niệm một tên. Từ mới xuất hiện ở đây ⇒ thêm vào
+      <code>Docs/glossary.md</code> trong cùng story.</div>
+  </section>
+
+</div>
+</body>
+</html>

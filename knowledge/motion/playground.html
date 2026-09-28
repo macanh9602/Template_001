@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Motion Playground</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --line:#262d38; --tx:#e6edf3; --dim:#8b949e;
+    --acc:#58a6ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;
+         align-items:baseline;gap:16px;flex-wrap:wrap}
+  h1{font-size:16px;margin:0;font-weight:600}
+  .sub{color:var(--dim);font-size:12px}
+  .wrap{display:grid;grid-template-columns:300px 1fr;gap:0;min-height:calc(100vh - 57px)}
+  .side{border-right:1px solid var(--line);padding:16px;overflow:auto}
+  .main{padding:16px;overflow:auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+        padding:14px;margin-bottom:14px}
+  .card h2{font-size:12px;margin:0 0 10px;color:var(--dim);
+           text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  label{display:block;font-size:12px;color:var(--dim);margin:10px 0 3px}
+  input[type=range]{width:100%;accent-color:var(--acc)}
+  select{width:100%;background:#0d1117;color:var(--tx);border:1px solid var(--line);
+         border-radius:6px;padding:6px 8px;font-size:13px}
+  .val{float:right;color:var(--acc);font-variant-numeric:tabular-nums}
+  button{background:#21262d;color:var(--tx);border:1px solid var(--line);border-radius:6px;
+         padding:7px 12px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--acc)}
+  button.on{background:var(--acc);color:#04121f;border-color:var(--acc);font-weight:600}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .lanes{display:flex;flex-direction:column;gap:10px}
+  .lane{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+  .lane .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .lane .nm{font-weight:600;font-size:13px}
+  .lane .tag{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dim)}
+  .track{position:relative;height:64px;background:#0d1117;border-radius:6px;
+         border:1px solid var(--line);overflow:hidden}
+  .goal{position:absolute;top:0;bottom:0;width:1px;background:#30363d}
+  .goal::after{content:'target';position:absolute;top:2px;left:4px;font-size:9px;color:#4d5866}
+  .box{position:absolute;top:50%;left:0;width:34px;height:34px;margin-top:-17px;
+       border-radius:7px;background:linear-gradient(150deg,#58a6ff,#3b7fd4);
+       display:flex;align-items:center;justify-content:center;font-size:10px;
+       color:#04121f;font-weight:700;will-change:transform}
+  .curvewrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .cv{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:8px}
+  .cv .cn{font:11px ui-monospace,monospace;color:var(--dim);margin-bottom:4px}
+  canvas{display:block;width:100%;height:auto}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600}
+  code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#79c0ff}
+  .note{font-size:12px;color:var(--dim);border-left:2px solid var(--warn);
+        padding-left:10px;margin:10px 0}
+  .pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;
+        border:1px solid var(--line);color:var(--dim);margin-left:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Motion Playground</h1>
+  <span class="sub">so sánh cạnh nhau · chỉnh số tại chỗ · đọc số ra để chốt · nhãn bằng technical term</span>
+</header>
+
+<div class="wrap">
+  <div class="side">
+    <div class="card">
+      <h2>Điều khiển chung</h2>
+      <div class="row">
+        <button id="play">▶ Replay</button>
+        <button id="loop">Loop</button>
+      </div>
+      <label>Tốc độ phát <span class="val" id="vSpeed">1.00×</span></label>
+      <input type="range" id="speed" min="0.1" max="1" step="0.05" value="1">
+      <div class="row" style="margin-top:8px">
+        <button data-sp="0.25">0.25×</button>
+        <button data-sp="0.5">0.5×</button>
+        <button data-sp="1">1×</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tham số A/B</h2>
+      <label>Duration <span class="val" id="vDur">0.30 s</span></label>
+      <input type="range" id="dur" min="0.05" max="1.2" step="0.01" value="0.30">
+
+      <label>Overshoot <span class="val" id="vOs">15 %</span></label>
+      <input type="range" id="os" min="0" max="60" step="1" value="15">
+
+      <label>Stagger <span class="val" id="vSt">0.05 s</span></label>
+      <input type="range" id="st" min="0" max="0.2" step="0.005" value="0.05">
+
+      <label>Anticipation <span class="val" id="vAn">0.08 s</span></label>
+      <input type="range" id="an" min="0" max="0.3" step="0.01" value="0.08">
+
+      <label>Số phần tử (stagger lane) <span class="val" id="vN">5</span></label>
+      <input type="range" id="n" min="1" max="10" step="1" value="5">
+    </div>
+
+    <div class="card">
+      <h2>Lane so sánh</h2>
+      <label>Lane A</label><select id="selA"></select>
+      <label>Lane B</label><select id="selB"></select>
+      <label>Lane C</label><select id="selC"></select>
+      <div class="note">Đừng gọi là “Option A/B/C” khi hỏi dev — gọi bằng đúng technical term hiện trên nhãn lane.</div>
+    </div>
+
+    <div class="card">
+      <h2>Số để chốt</h2>
+      <table id="out"></table>
+      <div class="note">Số chốt đi vào <code>MotionProfile</code>/<code>TimingProfile</code>, component chỉ giữ <code>presetId</code>. Không hardcode trong script.</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="card">
+      <h2>Chạy cạnh nhau</h2>
+      <div class="lanes" id="lanes"></div>
+    </div>
+
+    <div class="card">
+      <h2>Easing curves</h2>
+      <div class="curvewrap" id="curves"></div>
+    </div>
+
+    <div class="card">
+      <h2>Ngân sách thời lượng — điểm khởi đầu</h2>
+      <table>
+        <tr><th>Loại</th><th>Duration</th></tr>
+        <tr><td>micro feedback (nút, highlight)</td><td>0.08 – 0.15 s</td></tr>
+        <tr><td>element di chuyển ngắn</td><td>0.2 – 0.35 s</td></tr>
+        <tr><td>element bay xa / theo curve</td><td>0.35 – 0.6 s</td></tr>
+        <tr><td>chuyển state UI/panel</td><td>0.2 – 0.3 s</td></tr>
+        <tr><td>celebration / win</td><td>0.8 – 2.0 s (bắt buộc skip được)</td></tr>
+        <tr><td>stagger giữa phần tử</td><td>0.03 – 0.08 s</td></tr>
+      </table>
+      <div class="note">Hành động lặp hàng trăm lần trên mobile — thà ngắn hơn 20% còn hơn dài hơn 20%.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- easing ---------- */
+const E = {
+  linear:      t => t,
+  easeOutQuad: t => 1-(1-t)*(1-t),
+  easeInQuad:  t => t*t,
+  easeInOutQuad: t => t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2,
+  easeOutCubic:t => 1-Math.pow(1-t,3),
+  easeInCubic: t => t*t*t,
+  easeInOutCubic: t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2,
+  easeOutBack: (t,k=1.70158) => 1+(k+1)*Math.pow(t-1,3)+k*Math.pow(t-1,2),
+  easeInBack:  (t,k=1.70158) => (k+1)*t*t*t - k*t*t,
+  easeOutElastic: t => t===0?0:t===1?1:Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1,
+  easeOutBounce: t => {
+    const n=7.5625,d=2.75;
+    if(t<1/d) return n*t*t;
+    if(t<2/d) return n*(t-=1.5/d)*t+.75;
+    if(t<2.5/d) return n*(t-=2.25/d)*t+.9375;
+    return n*(t-=2.625/d)*t+.984375;
+  }
+};
+
+/* ---------- lane definitions (nhãn = technical term) ---------- */
+const LANES = {
+  'ease-out-cubic (baseline)':      {ease:'easeOutCubic'},
+  'ease-out-back (overshoot)':      {ease:'easeOutBack', useOvershoot:true},
+  'ease-out-elastic (wobble)':      {ease:'easeOutElastic'},
+  'ease-out-bounce':                {ease:'easeOutBounce'},
+  'ease-in-out-cubic':              {ease:'easeInOutCubic'},
+  'linear (máy móc)':               {ease:'linear'},
+  'anticipation + ease-out-back':   {ease:'easeOutBack', useOvershoot:true, anticipate:true},
+  'stagger (nhiều phần tử)':        {ease:'easeOutBack', useOvershoot:true, stagger:true}
+};
+const KEYS = Object.keys(LANES);
+
+/* ---------- state ---------- */
+const S = {dur:.30, os:.15, st:.05, an:.08, n:5, speed:1, loop:false, t0:0, playing:true};
+const sel = {A:KEYS[0], B:KEYS[1], C:KEYS[6]};
+
+/* ---------- ui wiring ---------- */
+const $ = id => document.getElementById(id);
+function bind(id, key, fmt, scale=1){
+  const el=$(id), out=$('v'+id[0].toUpperCase()+id.slice(1));
+  const upd=()=>{ S[key]=parseFloat(el.value)*scale; if(out) out.textContent=fmt(parseFloat(el.value)); build(); };
+  el.addEventListener('input',upd); upd();
+}
+bind('dur','dur', v=>v.toFixed(2)+' s');
+bind('os','os',  v=>v+' %', 0.01);
+bind('st','st',  v=>v.toFixed(3)+' s');
+bind('an','an',  v=>v.toFixed(2)+' s');
+bind('n','n',    v=>v);
+$('speed').addEventListener('input', e=>{ S.speed=parseFloat(e.target.value);
+  $('vSpeed').textContent=S.speed.toFixed(2)+'×'; });
+document.querySelectorAll('[data-sp]').forEach(b=>b.addEventListener('click',()=>{
+  S.speed=parseFloat(b.dataset.sp); $('speed').value=S.speed;
+  $('vSpeed').textContent=S.speed.toFixed(2)+'×';
+}));
+$('play').addEventListener('click', restart);
+$('loop').addEventListener('click', e=>{ S.loop=!S.loop; e.target.classList.toggle('on',S.loop); });
+
+['A','B','C'].forEach(k=>{
+  const s=$('sel'+k);
+  KEYS.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; s.appendChild(o); });
+  s.value=sel[k];
+  s.addEventListener('change',()=>{ sel[k]=s.value; build(); restart(); });
+});
+
+/* ---------- build lanes ---------- */
+let laneEls=[];
+function build(){
+  const host=$('lanes'); host.innerHTML=''; laneEls=[];
+  ['A','B','C'].forEach(k=>{
+    const name=sel[k], cfg=LANES[name];
+    const total = totalDur(cfg);
+    const d=document.createElement('div'); d.className='lane';
+    d.innerHTML=`<div class="hd"><span class="nm">${name}</span>
+      <span class="tag">${cfg.ease} · ${S.dur.toFixed(2)}s${cfg.useOvershoot?' · overshoot '+Math.round(S.os*100)+'%':''}${cfg.anticipate?' · antic '+S.an.toFixed(2)+'s':''}${cfg.stagger?' · stagger '+S.st.toFixed(3)+'s ×'+S.n:''} <span class="pill">${total.toFixed(2)}s tổng</span></span></div>
+      <div class="track"><div class="goal" style="left:calc(100% - 44px)"></div></div>`;
+    host.appendChild(d);
+    const tr=d.querySelector('.track');
+    const count = cfg.stagger ? S.n : 1;
+    const boxes=[];
+    for(let i=0;i<count;i++){
+      const b=document.createElement('div'); b.className='box';
+      b.style.opacity = count>1 ? (0.45+0.55*(i+1)/count) : 1;
+      b.textContent = count>1 ? (i+1) : '';
+      tr.appendChild(b); boxes.push(b);
+    }
+    laneEls.push({cfg,boxes,track:tr});
+  });
+  buildCurves(); buildOut();
+}
+function totalDur(cfg){
+  let t=S.dur;
+  if(cfg.anticipate) t+=S.an;
+  if(cfg.stagger) t+=S.st*(S.n-1);
+  return t;
+}
+
+/* ---------- animate ---------- */
+function restart(){ S.t0=performance.now(); S.playing=true; }
+function frame(now){
+  const elapsedReal=(now-S.t0)/1000;
+  const t = elapsedReal * S.speed;      // slow-motion kéo dài thời gian thực
+  let maxT=0;
+  laneEls.forEach(L=>{
+    const cfg=L.cfg;
+    const w=L.track.clientWidth-44;
+    maxT=Math.max(maxT,totalDur(cfg));
+    L.boxes.forEach((b,i)=>{
+      const off = (cfg.stagger? S.st*i : 0) ;
+      let lt = t - off;
+      let x=0, sc=1;
+      if(lt<=0){ x=0; }
+      else {
+        if(cfg.anticipate && lt < S.an){
+          const p=lt/S.an;
+          x = -14*Math.sin(p*Math.PI)*0.6;      // lùi nhẹ rồi về
+          sc = 1 - 0.10*Math.sin(p*Math.PI);
+        } else {
+          const at = cfg.anticipate ? lt-S.an : lt;
+          const p = Math.min(1, at/S.dur);
+          let e = E[cfg.ease](p);
+          if(cfg.useOvershoot){
+            // khuếch đại phần vượt của easing theo overshoot slider
+            const base = E.easeOutCubic(p);
+            e = base + (e-base) * (S.os/0.15);
+          }
+          x = e*w;
+          sc = 1 + 0.10*Math.max(0, e-1);
+        }
+      }
+      b.style.transform=`translateX(${x}px) scale(${sc.toFixed(3)})`;
+    });
+  });
+  if(t > maxT + 0.35){ if(S.loop) restart(); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- curves ---------- */
+function buildCurves(){
+  const host=$('curves'); host.innerHTML='';
+  const used=[...new Set(['A','B','C'].map(k=>LANES[sel[k]].ease))];
+  used.forEach(name=>{
+    const d=document.createElement('div'); d.className='cv';
+    d.innerHTML=`<div class="cn">${name}</div>`;
+    const c=document.createElement('canvas'); c.width=280; c.height=170; d.appendChild(c);
+    host.appendChild(d);
+    const g=c.getContext('2d'), P=18, W=c.width-P*2, H=c.height-P*2;
+    g.strokeStyle='#262d38'; g.lineWidth=1;
+    g.strokeRect(P,P,W,H);
+    g.setLineDash([3,3]); g.beginPath();
+    g.moveTo(P,P+H*0.25); g.lineTo(P+W,P+H*0.25); g.stroke();   // mốc value=1
+    g.setLineDash([]);
+    g.strokeStyle='#58a6ff'; g.lineWidth=2; g.beginPath();
+    for(let i=0;i<=120;i++){
+      const t=i/120, v=E[name](t);
+      const x=P+t*W, y=P+H*0.25+(1-v)*H*0.65;
+      i?g.lineTo(x,y):g.moveTo(x,y);
+    }
+    g.stroke();
+    g.fillStyle='#4d5866'; g.font='9px monospace';
+    g.fillText('0',P-2,P+H+11); g.fillText('t',P+W-4,P+H+11); g.fillText('1.0',2,P+H*0.25+3);
+  });
+}
+
+/* ---------- output table ---------- */
+function buildOut(){
+  const t=$('out');
+  const rows=[
+    ['duration', S.dur.toFixed(2)+' s'],
+    ['overshoot', Math.round(S.os*100)+' %'],
+    ['anticipation', S.an.toFixed(2)+' s'],
+    ['stagger', S.st.toFixed(3)+' s'],
+    ['tổng (lane dài nhất)', Math.max(...['A','B','C'].map(k=>totalDur(LANES[sel[k]]))).toFixed(2)+' s']
+  ];
+  t.innerHTML='<tr><th>Tham số</th><th>Giá trị</th></tr>'+
+    rows.map(r=>`<tr><td>${r[0]}</td><td><code>${r[1]}</code></td></tr>`).join('');
+}
+
+build(); restart(); requestAnimationFrame(frame);
+window.addEventListener('resize', ()=>build());
+</script>
+</body>
+</html>
