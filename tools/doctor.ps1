@@ -1,25 +1,25 @@
 <#
 .SYNOPSIS
-  Kiểm tra (và tự sửa khi có thể) capability của agent host trước khi dispatch task.
+  Kiem tra (va tu sua khi co the) capability cua agent host truoc khi dispatch task.
 
 .DESCRIPTION
-  Chạy ở root Unity project, Unity Editor đang mở và MCP for Unity đã Start Server.
-  Mỗi host (claude, codex) được kiểm theo chuỗi:
+  Chay o root Unity project, Unity Editor dang mo va MCP for Unity da Start Server.
+  Moi host (claude, codex) duoc kiem theo chuoi:
     INSTALLED -> AUTHENTICATED -> UNITY_MCP_CONFIGURED -> UNITY_MCP_SMOKE_PASS
-  Reviewer read-only (claude, chỉ Read/Grep/Glob) được kiểm là không ghi được file.
+  Reviewer read-only (claude, chi Read/Grep/Glob) duoc kiem la khong ghi duoc file.
 
-  -Repair chỉ làm bước deterministic:
-    - cài Codex CLI qua npm nếu thiếu;
-    - đăng ký Unity MCP cho Claude Code bằng chính entry panel Unity đã ghi vào ~/.codex/config.toml
-      (hoặc -UnityMcpUrl nếu truyền vào).
-  Đăng nhập (OAuth trình duyệt) là bước tay một lần/máy: script chỉ in hướng dẫn.
+  -Repair chi lam buoc deterministic:
+    - cai Codex CLI qua npm neu thieu;
+    - dang ky Unity MCP cho Claude Code bang chinh entry panel Unity da ghi vao ~/.codex/config.toml
+      (hoac -UnityMcpUrl neu truyen vao).
+  Dang nhap (OAuth trinh duyet) la buoc tay mot lan/may: script chi in huong dan.
 
-  Output: bảng trên console + .toolchain/capabilities.json (gitignored, UTF-8 không BOM).
+  Output: bang tren console + .toolchain/capabilities.json (gitignored, UTF-8 khong BOM).
 
 .EXAMPLE
-  .\tools\doctor.ps1                 # chỉ kiểm
-  .\tools\doctor.ps1 -Repair         # kiểm + tự sửa phần tự động được
-  .\tools\doctor.ps1 -SkipSmoke      # không gọi model (không tốn token)
+  .\tools\doctor.ps1                 # chi kiem
+  .\tools\doctor.ps1 -Repair         # kiem + tu sua phan tu dong duoc
+  .\tools\doctor.ps1 -SkipSmoke      # khong goi model (khong ton token)
 #>
 [CmdletBinding()]
 param(
@@ -40,7 +40,7 @@ function Add-Check([string]$HostName, [string]$Level, [string]$Status, [string]$
 }
 
 function Invoke-Native([string]$Exe, [string[]]$Arguments) {
-    # Gom stdout+stderr thành text; không để stderr của native thành ErrorRecord đỏ trên PS 5.1.
+    # Gom stdout+stderr thanh text; khong de stderr cua native thanh ErrorRecord do tren PS 5.1.
     $out = & $Exe @Arguments 2>&1 | ForEach-Object { "$_" } | Out-String
     return [pscustomobject]@{ Code = $LASTEXITCODE; Text = $out }
 }
@@ -65,7 +65,7 @@ function Get-CodexConfigPath {
     return (Join-Path $codexHome 'config.toml')
 }
 
-# Đọc [mcp_servers.<name>] có tên chứa "unity" trong config.toml của Codex (panel MCP for Unity ghi vào đây).
+# Doc [mcp_servers.<name>] co ten chua "unity" trong config.toml cua Codex (panel MCP for Unity ghi vao day).
 function Get-UnityEntryFromCodexConfig([string]$Path) {
     if (-not (Test-Path $Path)) { return $null }
     $lines = Get-Content -Path $Path -Encoding UTF8
@@ -123,18 +123,18 @@ if ($UnityMcpUrl) { $unityEntry = [ordered]@{ name = $UnityMcpName; url = $Unity
 
 if ($unityEntry) {
     $how = if ($unityEntry.url) { "url $($unityEntry.url)" } else { "stdio $($unityEntry.command) $($unityEntry.args -join ' ')" }
-    Add-Check 'unity' 'MCP_ENTRY_KNOWN' 'PASS' "từ $(if ($UnityMcpUrl) { '-UnityMcpUrl' } else { $codexConfig }): $how"
+    Add-Check 'unity' 'MCP_ENTRY_KNOWN' 'PASS' "tu $(if ($UnityMcpUrl) { '-UnityMcpUrl' } else { $codexConfig }): $how"
 } else {
-    Add-Check 'unity' 'MCP_ENTRY_KNOWN' 'FAIL' "không thấy [mcp_servers.*unity*] trong $codexConfig"
-    $ManualSteps.Add('Unity: panel MCP for Unity -> Client: Codex -> Configure (hoặc truyền -UnityMcpUrl http://127.0.0.1:8080/mcp).')
+    Add-Check 'unity' 'MCP_ENTRY_KNOWN' 'FAIL' "khong thay [mcp_servers.*unity*] trong $codexConfig"
+    $ManualSteps.Add('Unity: panel MCP for Unity -> Client: Codex -> Configure (hoac truyen -UnityMcpUrl http://127.0.0.1:8080/mcp).')
 }
 
 if ($unityEntry -and $unityEntry.url) {
     if (Test-TcpPort $unityEntry.url) {
         Add-Check 'unity' 'MCP_SERVER_REACHABLE' 'PASS' $unityEntry.url
     } else {
-        Add-Check 'unity' 'MCP_SERVER_REACHABLE' 'FAIL' "không kết nối được $($unityEntry.url)"
-        $ManualSteps.Add('Unity: mở Unity Editor, panel MCP for Unity -> Start Server.')
+        Add-Check 'unity' 'MCP_SERVER_REACHABLE' 'FAIL' "khong ket noi duoc $($unityEntry.url)"
+        $ManualSteps.Add('Unity: mo Unity Editor, panel MCP for Unity -> Start Server.')
     }
 }
 
@@ -144,7 +144,7 @@ if (Test-Path $manifest) {
     if ($m.Success) {
         $ref = $m.Groups[1].Value
         if ($ref -match '#(main|master)$' -or ($ref -match '\.git' -and $ref -notmatch '#')) {
-            Add-Check 'unity' 'MCP_PACKAGE_PINNED' 'WARN' "$ref trôi theo branch; pin theo tag (vd #v10.0.0)"
+            Add-Check 'unity' 'MCP_PACKAGE_PINNED' 'WARN' "$ref troi theo branch; pin theo tag (vd #v10.0.0)"
         } else {
             Add-Check 'unity' 'MCP_PACKAGE_PINNED' 'PASS' $ref
         }
@@ -156,8 +156,8 @@ if (Test-Path $manifest) {
 function Test-ClaudeHost {
     $exe = Find-Exe 'claude'
     if (-not $exe) {
-        Add-Check 'claude' 'INSTALLED' 'FAIL' 'không có claude trên PATH'
-        $ManualSteps.Add('Claude: cài Claude Code CLI (https://code.claude.com/docs) rồi chạy lại doctor.')
+        Add-Check 'claude' 'INSTALLED' 'FAIL' 'khong co claude tren PATH'
+        $ManualSteps.Add('Claude: cai Claude Code CLI (https://code.claude.com/docs) roi chay lai doctor.')
         return
     }
     Add-Check 'claude' 'INSTALLED' 'PASS' $exe
@@ -165,8 +165,8 @@ function Test-ClaudeHost {
     if (-not $SkipSmoke) {
         $r = Invoke-Native $exe @('-p', 'Reply with exactly: OK', '--output-format', 'json')
         if ($r.Text -match 'authenticate|OAuth|login' -and $r.Text -match '"is_error"\s*:\s*true') {
-            Add-Check 'claude' 'AUTHENTICATED' 'FAIL' 'OAuth hết hạn / chưa login'
-            $ManualSteps.Add('Claude: chạy `claude`, gõ /login, xong /exit (một lần/máy).')
+            Add-Check 'claude' 'AUTHENTICATED' 'FAIL' 'OAuth het han / chua login'
+            $ManualSteps.Add('Claude: chay `claude`, go /login, xong /exit (mot lan/may).')
             return
         }
         Add-Check 'claude' 'AUTHENTICATED' 'PASS' ''
@@ -185,8 +185,8 @@ function Test-ClaudeHost {
         $unityLine = ($list.Text -split "`r?`n") | Where-Object { $_ -match '(?i)unity' } | Select-Object -First 1
     }
     if (-not $unityLine) {
-        Add-Check 'claude' 'UNITY_MCP_CONFIGURED' 'FAIL' 'claude mcp list không có Unity'
-        $ManualSteps.Add('Claude: chạy lại với -Repair, hoặc panel MCP for Unity -> Client: Claude Code -> Configure.')
+        Add-Check 'claude' 'UNITY_MCP_CONFIGURED' 'FAIL' 'claude mcp list khong co Unity'
+        $ManualSteps.Add('Claude: chay lai voi -Repair, hoac panel MCP for Unity -> Client: Claude Code -> Configure.')
         return
     }
     $serverName = ($unityLine -split ':')[0].Trim()
@@ -208,14 +208,14 @@ function Test-ClaudeHost {
         Add-Check 'claude' 'UNITY_MCP_SMOKE_PASS' 'FAIL' (($answer -replace '\s+', ' ').Trim() | ForEach-Object { $_.Substring(0, [Math]::Min(200, $_.Length)) })
     }
 
-    # Reviewer read-only: chỉ Read/Grep/Glob thì không được tạo file.
+    # Reviewer read-only: chi Read/Grep/Glob thi khong duoc tao file.
     $probe = Join-Path ([System.IO.Path]::GetTempPath()) ("doctor-readonly-" + [guid]::NewGuid().ToString('N') + '.txt')
     $null = Invoke-Native $exe @('-p', "Create the file $probe with content x. If you cannot, reply CANNOT.", '--allowedTools', 'Read,Grep,Glob', '--output-format', 'json')
     if (Test-Path $probe) {
         Remove-Item $probe -Force
-        Add-Check 'claude' 'REVIEWER_READONLY' 'FAIL' 'reviewer toolset vẫn ghi được file'
+        Add-Check 'claude' 'REVIEWER_READONLY' 'FAIL' 'reviewer toolset van ghi duoc file'
     } else {
-        Add-Check 'claude' 'REVIEWER_READONLY' 'PASS' 'Read,Grep,Glob không ghi được file'
+        Add-Check 'claude' 'REVIEWER_READONLY' 'PASS' 'Read,Grep,Glob khong ghi duoc file'
     }
 }
 
@@ -224,7 +224,7 @@ function Test-ClaudeHost {
 function Find-CodexExe {
     $exe = Find-Exe 'codex'
     if ($exe) { return $exe }
-    # Binary đi kèm extension VS Code không nằm trên PATH; chỉ dùng để báo, runner vẫn nên dùng CLI cài qua npm.
+    # Binary di kem extension VS Code khong nam tren PATH; chi dung de bao, runner van nen dung CLI cai qua npm.
     $bundled = Get-ChildItem -Path (Join-Path $HOME '.vscode\extensions') -Filter 'codex.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($bundled) { return $bundled.FullName }
     return $null
@@ -239,31 +239,31 @@ function Test-CodexHost {
             Write-Host "[repair] npm install -g @openai/codex -> exit $($r.Code)"
             $exe = Find-Exe 'codex'
         } else {
-            $ManualSteps.Add('Codex: cần Node.js/npm để cài Codex CLI (npm install -g @openai/codex).')
+            $ManualSteps.Add('Codex: can Node.js/npm de cai Codex CLI (npm install -g @openai/codex).')
         }
     }
     if (-not $exe) {
-        Add-Check 'codex' 'INSTALLED' 'FAIL' 'không có codex trên PATH'
-        $ManualSteps.Add('Codex: chạy doctor với -Repair (npm install -g @openai/codex), mở terminal mới.')
+        Add-Check 'codex' 'INSTALLED' 'FAIL' 'khong co codex tren PATH'
+        $ManualSteps.Add('Codex: chay doctor voi -Repair (npm install -g @openai/codex), mo terminal moi.')
         return
     }
     $onPath = [bool](Find-Exe 'codex')
-    Add-Check 'codex' 'INSTALLED' ($(if ($onPath) { 'PASS' } else { 'WARN' })) ($(if ($onPath) { $exe } else { "chỉ có binary của VS Code extension: $exe (không trên PATH)" }))
+    Add-Check 'codex' 'INSTALLED' ($(if ($onPath) { 'PASS' } else { 'WARN' })) ($(if ($onPath) { $exe } else { "chi co binary cua VS Code extension: $exe (khong tren PATH)" }))
 
     $st = Invoke-Native $exe @('login', 'status')
     if ($st.Code -eq 0 -and $st.Text -notmatch '(?i)not logged in') {
         Add-Check 'codex' 'AUTHENTICATED' 'PASS' (($st.Text -replace '\s+', ' ').Trim())
     } else {
         Add-Check 'codex' 'AUTHENTICATED' 'FAIL' (($st.Text -replace '\s+', ' ').Trim())
-        $ManualSteps.Add('Codex: chạy `codex login` (một lần/máy).')
+        $ManualSteps.Add('Codex: chay `codex login` (mot lan/may).')
         return
     }
 
     $list = Invoke-Native $exe @('mcp', 'list')
     if ($list.Text -match '(?i)unity') {
-        Add-Check 'codex' 'UNITY_MCP_CONFIGURED' 'PASS' 'codex mcp list có Unity'
+        Add-Check 'codex' 'UNITY_MCP_CONFIGURED' 'PASS' 'codex mcp list co Unity'
     } else {
-        Add-Check 'codex' 'UNITY_MCP_CONFIGURED' 'FAIL' 'codex mcp list không có Unity'
+        Add-Check 'codex' 'UNITY_MCP_CONFIGURED' 'FAIL' 'codex mcp list khong co Unity'
         $ManualSteps.Add('Codex: panel MCP for Unity -> Client: Codex -> Configure.')
         return
     }
@@ -298,7 +298,7 @@ Write-Host "capabilities -> $outPath"
 
 if ($ManualSteps.Count -gt 0) {
     Write-Host ''
-    Write-Host 'Bước làm tay còn lại:' -ForegroundColor Yellow
+    Write-Host 'Buoc lam tay con lai:' -ForegroundColor Yellow
     $ManualSteps | Select-Object -Unique | ForEach-Object { Write-Host "  - $_" }
 }
 
