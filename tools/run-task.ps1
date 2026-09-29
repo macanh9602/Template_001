@@ -19,7 +19,8 @@
          BLOCKED / loi   => BLOCKED
       Moi lan can nguoi: them 1 dong vao handoff/<wp>/interventions.jsonl.
 
-  Output: handoff/<wp>/runs/<id>/<timestamp>/  (prompt, log, diff, rN.result.json, rN.review.json, status.json)
+  Output: handoff/<wp>/runs/<id>/<timestamp>/  (prompt, *.out.txt, diff, rN.result.json, rN.review.json,
+          status.json, unity-editor-log-tail.txt). Khong dung duoi .log: .gitignore cua Unity bo qua *.log.
   Runner khong commit, khong push.
 
 .EXAMPLE
@@ -147,7 +148,25 @@ function Add-Intervention([string]$State, [string]$Reason) {
     [System.IO.File]::AppendAllText($InterventionsPath, $line + "`n", $Utf8NoBom)
 }
 
+# Unity khong ghi timestamp vao Console qua MCP; Editor.log la evidence duy nhat cho su co Editor/MCP.
+# Luu duoi .txt vi .gitignore cua Unity bo qua *.log.
+function Save-EditorLogTail {
+    $candidates = @()
+    if ($env:LOCALAPPDATA) { $candidates += (Join-Path $env:LOCALAPPDATA 'Unity/Editor/Editor.log') }
+    if ($HOME) { $candidates += (Join-Path $HOME 'Library/Logs/Unity/Editor.log'); $candidates += (Join-Path $HOME '.config/unity3d/Editor.log') }
+    foreach ($c in $candidates) {
+        if (Test-Path -LiteralPath $c) {
+            try {
+                $tail = Get-Content -LiteralPath $c -Tail 800 -ErrorAction Stop | Out-String
+                Write-Text (Join-Path $RunDir 'unity-editor-log-tail.txt') $tail
+            } catch { }
+            return
+        }
+    }
+}
+
 function Complete-Run([string]$Status, [string]$Reason, [int]$Rounds) {
+    Save-EditorLogTail
     Write-Json (Join-Path $RunDir 'status.json') ([ordered]@{
             schema = 'run-status/v1'; taskId = $TaskObj.id; status = $Status; reason = $Reason
             rounds = $Rounds; host = $ImplHost; finishedAt = (Get-Date).ToString('o')
@@ -263,6 +282,10 @@ $reuseText
 - Do not commit, push, or rewrite git history.
 - You do NOT judge the result. Do not write review files. Do not claim PASS or DONE.
 - Never ask the user a question: if blocked, stop and report.
+- Unity may stop answering MCP (ping not answered, session not ready, poll timeout) while it compiles,
+  reloads the domain or runs tests: its main thread is busy. That alone is NOT a blocker. Wait 30 s and
+  poll again; keep polling for up to 20 minutes per long operation before reporting BLOCKED, and include
+  the last MCP error text and how long you waited.
 
 ## Write set
 $writeSetText
@@ -346,7 +369,7 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     $p = Join-Path $RunDir "r$round"
     Write-Host "[$($TaskObj.id)] round $round - implementer ($ImplHost) ..."
     Write-Text "$p.implementer.prompt.md" (New-ImplementerPrompt $round $prevReview)
-    $msg = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.log" "$p.implementer.last.md"
+    $msg = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.out.txt" "$p.implementer.last.md"
 
     $status = 'BLOCKED'; $blocker = 'implementer khong in dong RESULT:'
     if ($msg -match '(?m)^\s*RESULT:\s*IMPLEMENTED\b') { $status = 'IMPLEMENTED'; $blocker = $null }
@@ -370,7 +393,7 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     $result = [ordered]@{
         schema = 'result/v1'; taskId = $TaskObj.id; round = $round; host = $ImplHost; status = $status; blocker = $blocker
         baseCommit = $BaseCommit; targetRef = $TaskObj.targetRef; changedFiles = @($changed); outOfScope = $outOfScope
-        evidence = $evidence; summary = $summary; log = (Get-RelPath "$p.implementer.log"); diff = (Get-RelPath "$p.diff")
+        evidence = $evidence; summary = $summary; log = (Get-RelPath "$p.implementer.out.txt"); diff = (Get-RelPath "$p.diff")
     }
     Write-Json "$p.result.json" $result
     Write-Host "[$($TaskObj.id)] round $round - $status, $($changed.Count) file doi$(if ($blocker) { ", $blocker" })"
@@ -382,10 +405,10 @@ for ($round = 1; $round -le $maxRounds; $round++) {
 
     Write-Host "[$($TaskObj.id)] round $round - reviewer (claude, read-only) ..."
     Write-Text "$p.reviewer.prompt.md" (New-ReviewerPrompt $round "$p.result.json" "$p.diff")
-    $rv = Invoke-Reviewer "$p.reviewer.prompt.md" "$p.reviewer.log"
+    $rv = Invoke-Reviewer "$p.reviewer.prompt.md" "$p.reviewer.out.txt"
     if (-not $rv.Review -or @('PASS', 'PATCH', 'TARGET_RECONSIDER', 'BLOCKED') -notcontains [string]$rv.Review.verdict) {
         Add-Intervention 'BLOCKED' 'reviewer khong tra JSON hop le'
-        Complete-Run 'BLOCKED' "reviewer khong tra JSON hop le (xem $(Get-RelPath "$p.reviewer.log"))" $round
+        Complete-Run 'BLOCKED' "reviewer khong tra JSON hop le (xem $(Get-RelPath "$p.reviewer.out.txt"))" $round
     }
     $verdict = [string]$rv.Review.verdict
     $ruledOut = @($rv.Review.implHypothesesRuledOut | Where-Object { $_ })
