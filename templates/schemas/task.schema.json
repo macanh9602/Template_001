@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "task/v1",
+  "title": "Task header (machine part of a worker packet)",
+  "type": "object",
+  "required": ["schema", "id", "packet", "implementers", "requires", "writeSet", "acceptance"],
+  "properties": {
+    "schema": { "const": "task/v1" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "packet": { "type": "string", "description": "Path (repo-relative) to the prose worker packet (.md)." },
+    "implementers": {
+      "type": "array", "minItems": 1,
+      "items": { "enum": ["claude", "codex"] },
+      "description": "Preference order. Runner picks the first host whose capabilities satisfy `requires`."
+    },
+    "requires": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "doctor.ps1 levels the implementer host must PASS, e.g. UNITY_MCP_SMOKE_PASS."
+    },
+    "targetRef": { "type": ["string", "null"], "description": "e.g. visual/direction.v001.json#motion" },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "writeSet": {
+      "type": "array", "minItems": 1, "items": { "type": "string" },
+      "description": "Repo-relative globs (** and *). Changes outside => BLOCKED(scope)."
+    },
+    "resources": { "type": "array", "items": { "enum": ["unity", "blender"] } },
+    "mustReuse": { "type": "array", "items": { "type": "string" } },
+    "acceptance": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "required": ["text", "kind"],
+        "properties": {
+          "text": { "type": "string" },
+          "kind": { "enum": ["auto", "review", "manual"] }
+        }
+      }
+    }
+  }
+}

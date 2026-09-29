@@ -31,9 +31,13 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+# Native output (git, claude, codex) la UTF-8; PS 5.1 mac dinh doc theo OEM code page.
+try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch { }
 $ProjectRoot = (Get-Location).Path
 $Results = New-Object System.Collections.Generic.List[object]
 $ManualSteps = New-Object System.Collections.Generic.List[string]
+# Runner doc exe + ten Unity MCP server cua tung host tu day.
+$HostInfo = [ordered]@{}
 
 function Add-Check([string]$HostName, [string]$Level, [string]$Status, [string]$Detail) {
     $Results.Add([pscustomobject]@{ host = $HostName; level = $Level; status = $Status; detail = $Detail })
@@ -161,6 +165,7 @@ function Test-ClaudeHost {
         return
     }
     Add-Check 'claude' 'INSTALLED' 'PASS' $exe
+    $HostInfo['claude'] = [ordered]@{ exe = $exe; unityMcpServer = $null }
 
     # `claude auth status` khong ton token nhung co the van bao loggedIn khi OAuth het han va khong refresh duoc,
     # nen khi khong -SkipSmoke thi ping them mot lan -p.
@@ -198,6 +203,7 @@ function Test-ClaudeHost {
     }
     $serverName = ($unityLine -split ':')[0].Trim()
     if ($unityLine -match 'Connected') {
+        $HostInfo['claude'].unityMcpServer = $serverName
         Add-Check 'claude' 'UNITY_MCP_CONFIGURED' 'PASS' $unityLine.Trim()
     } else {
         Add-Check 'claude' 'UNITY_MCP_CONFIGURED' 'FAIL' $unityLine.Trim()
@@ -255,6 +261,7 @@ function Test-CodexHost {
         return
     }
     $onPath = [bool](Find-Exe 'codex')
+    $HostInfo['codex'] = [ordered]@{ exe = $exe; unityMcpServer = $null }
     Add-Check 'codex' 'INSTALLED' ($(if ($onPath) { 'PASS' } else { 'WARN' })) ($(if ($onPath) { $exe } else { "chi co binary cua VS Code extension: $exe (khong tren PATH)" }))
 
     $st = Invoke-Native $exe @('login', 'status')
@@ -268,6 +275,7 @@ function Test-CodexHost {
 
     $list = Invoke-Native $exe @('mcp', 'list')
     if ($list.Text -match '(?i)unity') {
+        if ($unityEntry) { $HostInfo['codex'].unityMcpServer = $unityEntry.name }
         Add-Check 'codex' 'UNITY_MCP_CONFIGURED' 'PASS' 'codex mcp list co Unity'
     } else {
         Add-Check 'codex' 'UNITY_MCP_CONFIGURED' 'FAIL' 'codex mcp list khong co Unity'
@@ -297,6 +305,7 @@ $capabilities = [ordered]@{
     generatedAt = (Get-Date).ToString('o')
     machine     = $env:COMPUTERNAME
     projectRoot = $ProjectRoot
+    hosts       = $HostInfo
     checks      = $Results
 }
 $outPath = Join-Path $ProjectRoot '.toolchain/capabilities.json'

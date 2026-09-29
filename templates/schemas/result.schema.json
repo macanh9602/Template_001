@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "result/v1",
+  "title": "Implementer result (runner-written; changedFiles computed from git, not self-reported)",
+  "type": "object",
+  "required": ["schema", "taskId", "round", "host", "status", "baseCommit", "changedFiles", "outOfScope"],
+  "properties": {
+    "schema": { "const": "result/v1" },
+    "taskId": { "type": "string" },
+    "round": { "type": "integer", "minimum": 1 },
+    "host": { "type": "string" },
+    "status": { "enum": ["IMPLEMENTED", "BLOCKED"] },
+    "blocker": { "type": ["string", "null"] },
+    "baseCommit": { "type": "string" },
+    "targetRef": { "type": ["string", "null"] },
+    "changedFiles": { "type": "array", "items": { "type": "string" } },
+    "outOfScope": { "type": "array", "items": { "type": "string" } },
+    "evidence": { "type": "array", "items": { "type": "string" } },
+    "summary": { "type": "string" },
+    "log": { "type": "string" },
+    "diff": { "type": "string" }
+  }
+}
