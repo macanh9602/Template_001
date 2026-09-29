@@ -159,6 +159,16 @@ if (Test-Path $manifest) {
 
 function Test-ClaudeHost {
     $exe = Find-Exe 'claude'
+    if (-not $exe -and $Repair) {
+        # Native installer chinh thuc (khong can Node). Cai vao %USERPROFILE%\.local\bin.
+        try {
+            Write-Host '[repair] cai Claude Code CLI: irm https://claude.ai/install.ps1 | iex'
+            Invoke-Expression (Invoke-RestMethod -Uri 'https://claude.ai/install.ps1')
+        } catch { Write-Host "[repair] cai Claude Code that bai: $($_.Exception.Message)" }
+        $localBin = Join-Path $HOME '.local\bin'
+        if ((Test-Path $localBin) -and ($env:PATH -notlike "*$localBin*")) { $env:PATH = "$localBin;$env:PATH" }
+        $exe = Find-Exe 'claude'
+    }
     if (-not $exe) {
         Add-Check 'claude' 'INSTALLED' 'FAIL' 'khong co claude tren PATH'
         $ManualSteps.Add('Claude: cai Claude Code CLI (https://code.claude.com/docs) roi chay lai doctor.')
@@ -290,6 +300,9 @@ function Test-CodexHost {
     } else {
         $tail = (($smoke.Text -replace '\s+', ' ').Trim())
         Add-Check 'codex' 'UNITY_MCP_SMOKE_PASS' 'FAIL' $tail.Substring([Math]::Max(0, $tail.Length - 200))
+        if ($smoke.Text -match "The '([^']+)' model is not supported") {
+            $ManualSteps.Add("Codex: model '$($Matches[1])' khong dung duoc voi tai khoan nay. Sua dong model = ... trong $codexConfig (xoa dong do de dung model mac dinh, hoac chon model trong ``codex`` -> /model), roi chay lai doctor.")
+        }
     }
 }
 
