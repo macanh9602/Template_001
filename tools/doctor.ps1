@@ -44,9 +44,22 @@ function Add-Check([string]$HostName, [string]$Level, [string]$Status, [string]$
 }
 
 function Invoke-Native([string]$Exe, [string[]]$Arguments) {
-    # Gom stdout+stderr thanh text; khong de stderr cua native thanh ErrorRecord do tren PS 5.1.
-    $out = & $Exe @Arguments 2>&1 | ForEach-Object { "$_" } | Out-String
-    return [pscustomobject]@{ Code = $LASTEXITCODE; Text = $out }
+    # Gom stdout+stderr thanh text. PS 5.1 bien moi dong stderr cua native thanh ErrorRecord;
+    # neu ErrorActionPreference la Stop (vd bi script khac dat) thi mot dong canh bao se dung ca doctor.
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & $Exe @Arguments 2>&1 | ForEach-Object { "$_" } | Out-String
+        $code = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $prev }
+    return [pscustomobject]@{ Code = $code; Text = $out }
+}
+
+# stderr (vd canh bao [mcp-sdk]) bi gop vao stdout; cat lay object JSON truoc khi parse.
+function ConvertFrom-JsonInText([string]$Text) {
+    $start = $Text.IndexOf('{'); $end = $Text.LastIndexOf('}')
+    if ($start -lt 0 -or $end -le $start) { return $null }
+    try { return ($Text.Substring($start, $end - $start + 1) | ConvertFrom-Json) } catch { return $null }
 }
 
 function Find-Exe([string]$Name) {
@@ -163,7 +176,8 @@ function Test-ClaudeHost {
         # Native installer chinh thuc (khong can Node). Cai vao %USERPROFILE%\.local\bin.
         try {
             Write-Host '[repair] cai Claude Code CLI: irm https://claude.ai/install.ps1 | iex'
-            Invoke-Expression (Invoke-RestMethod -Uri 'https://claude.ai/install.ps1')
+            # Process rieng: installer tu dat $ErrorActionPreference='Stop'; chay bang iex trong scope nay se ro ri.
+            & powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex" | Out-Host
         } catch { Write-Host "[repair] cai Claude Code that bai: $($_.Exception.Message)" }
         $localBin = Join-Path $HOME '.local\bin'
         if ((Test-Path $localBin) -and ($env:PATH -notlike "*$localBin*")) { $env:PATH = "$localBin;$env:PATH" }
@@ -181,7 +195,8 @@ function Test-ClaudeHost {
     # nen khi khong -SkipSmoke thi ping them mot lan -p.
     $st = Invoke-Native $exe @('auth', 'status', '--json')
     $loggedIn = $false
-    try { $loggedIn = [bool](($st.Text | ConvertFrom-Json).loggedIn) } catch { $loggedIn = $false }
+    $stObj = ConvertFrom-JsonInText $st.Text
+    $loggedIn = [bool]($stObj -and $stObj.loggedIn)
     $authFail = -not $loggedIn
     if (-not $authFail -and -not $SkipSmoke) {
         $r = Invoke-Native $exe @('-p', 'Reply with exactly: OK', '--output-format', 'json')
@@ -224,7 +239,8 @@ function Test-ClaudeHost {
 
     $smoke = Invoke-Native $exe @('-p', $SmokePrompt, '--allowedTools', "mcp__$serverName", '--output-format', 'json')
     $answer = ''
-    try { $answer = ($smoke.Text | ConvertFrom-Json).result } catch { $answer = $smoke.Text }
+    $smokeObj = ConvertFrom-JsonInText $smoke.Text
+    $answer = if ($smokeObj -and $smokeObj.result) { [string]$smokeObj.result } else { $smoke.Text }
     if ($answer -match $SmokePattern) {
         Add-Check 'claude' 'UNITY_MCP_SMOKE_PASS' 'PASS' $Matches[0]
     } else {
