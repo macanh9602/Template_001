@@ -252,6 +252,7 @@ $writeSetText = (@($TaskObj.writeSet) | ForEach-Object { "- $_" }) -join "`n"
 $acceptText = (@($TaskObj.acceptance) | ForEach-Object { "- [$($_.kind)] $($_.text)" }) -join "`n"
 $reuseText = if ($TaskObj.mustReuse) { (@($TaskObj.mustReuse) | ForEach-Object { "- $_" }) -join "`n" } else { '- (none)' }
 $targetText = if ($TaskObj.targetRef) { $TaskObj.targetRef } else { '(none)' }
+$baselineText = if ($TaskObj.baselineRef) { "baselineRef = $($TaskObj.baselineRef)" } else { 'no baselineRef set' }
 
 function New-ImplementerPrompt([int]$Round, [string]$PrevReviewPath) {
     $patchBlock = ''
@@ -282,6 +283,8 @@ $reuseText
 - Do not commit, push, or rewrite git history.
 - You do NOT judge the result. Do not write review files. Do not claim PASS or DONE.
 - Never ask the user a question: if blocked, stop and report.
+- Only call a failure pre-existing if you show it failing at the task baselineRef ($baselineText).
+  Never check out, stash or reset to establish a baseline in this working tree.
 - Unity may stop answering MCP (ping not answered, session not ready, poll timeout) while it compiles,
   reloads the domain or runs tests: its main thread is busy. That alone is NOT a blocker. Wait 30 s and
   poll again; keep polling for up to 20 minutes per long operation before reporting BLOCKED, and include
@@ -326,6 +329,12 @@ $acceptText
 - TARGET_RECONSIDER: only if implementation matches the target/acceptance and the result is still wrong, AND you list in implHypothesesRuledOut the implementation causes you ruled out with evidence. Otherwise use PATCH or BLOCKED.
 - BLOCKED: cannot be judged or fixed by the implementer (missing evidence you cannot obtain, contradictory packet).
 - Never propose changing an approved target as a PATCH.
+- "Pre-existing failure" is accepted ONLY with evidence that it fails at the task's baselineRef
+  ($baselineText), a commit from before the work under test. The runner's base commit is the state
+  WITH the work under test, so failing there proves nothing. No baselineRef, or no evidence at it
+  => treat the failure as caused by the work under test (PATCH), never as pre-existing.
+- A failing test whose assertion contradicts a locked rule of the packet is a stale test: PATCH with the
+  instruction to update the test to the locked rule, citing the rule.
 
 ## Output
 Reply with ONLY one JSON object, no prose, no code fence:
