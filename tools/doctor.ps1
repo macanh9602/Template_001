@@ -162,15 +162,22 @@ function Test-ClaudeHost {
     }
     Add-Check 'claude' 'INSTALLED' 'PASS' $exe
 
-    if (-not $SkipSmoke) {
+    # `claude auth status` khong ton token nhung co the van bao loggedIn khi OAuth het han va khong refresh duoc,
+    # nen khi khong -SkipSmoke thi ping them mot lan -p.
+    $st = Invoke-Native $exe @('auth', 'status', '--json')
+    $loggedIn = $false
+    try { $loggedIn = [bool](($st.Text | ConvertFrom-Json).loggedIn) } catch { $loggedIn = $false }
+    $authFail = -not $loggedIn
+    if (-not $authFail -and -not $SkipSmoke) {
         $r = Invoke-Native $exe @('-p', 'Reply with exactly: OK', '--output-format', 'json')
-        if ($r.Text -match 'authenticate|OAuth|login' -and $r.Text -match '"is_error"\s*:\s*true') {
-            Add-Check 'claude' 'AUTHENTICATED' 'FAIL' 'OAuth het han / chua login'
-            $ManualSteps.Add('Claude: chay `claude`, go /login, xong /exit (mot lan/may).')
-            return
-        }
-        Add-Check 'claude' 'AUTHENTICATED' 'PASS' ''
+        $authFail = ($r.Text -match 'authenticate|OAuth|login' -and $r.Text -match '"is_error"\s*:\s*true')
     }
+    if ($authFail) {
+        Add-Check 'claude' 'AUTHENTICATED' 'FAIL' 'OAuth het han / chua login'
+        $ManualSteps.Add('Claude: chay `claude auth login` (mo trinh duyet, mot lan/may).')
+        return
+    }
+    Add-Check 'claude' 'AUTHENTICATED' 'PASS' ''
 
     $list = Invoke-Native $exe @('mcp', 'list')
     $unityLine = ($list.Text -split "`r?`n") | Where-Object { $_ -match '(?i)unity' } | Select-Object -First 1
