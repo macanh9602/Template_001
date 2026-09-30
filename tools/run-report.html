@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run Report</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e3e1dc;
+    --accent: #3b5bdb; --ok: #2b8a3e; --warn: #c77700; --bad: #c92a2a; --chip: #eef0f6;
+    --impl: #3b5bdb; --rev: #9c36b5; --script: #2b8a3e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16171a; --panel: #1f2125; --ink: #ecebe8; --muted: #9b9a96; --line: #30333a;
+      --accent: #7c93ff; --ok: #51cf66; --warn: #fcc419; --bad: #ff6b6b; --chip: #2a2d35;
+      --impl: #7c93ff; --rev: #da77f2; --script: #51cf66; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .grid { display: grid; gap: 12px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin: 16px 0; }
+  .two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-bottom: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .kpi .v { font-size: 22px; font-weight: 650; }
+  .kpi .l { color: var(--muted); font-size: 12px; }
+  .kpi.good .v { color: var(--ok); }
+  .pill { display: inline-block; white-space: nowrap; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #fff; }
+  .s-ok { background: var(--ok); } .s-bad { background: var(--bad); } .s-warn { background: var(--warn); } .s-mute { background: var(--muted); }
+  .chip { display: inline-block; background: var(--chip); border-radius: 6px; padding: 1px 7px; margin: 1px 4px 1px 0; font-size: 11px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .runs { display: grid; gap: 8px; font-size: 12px; }
+  .run { display: grid; grid-template-columns: minmax(120px, 210px) 1fr 86px; grid-template-areas: "name bar num"; gap: 4px 10px; align-items: center; }
+  .run .name { grid-area: name; } .run .viz { grid-area: bar; min-width: 0; } .run .num { grid-area: num; }
+  .runs .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .runs .name small { color: var(--muted); display: block; }
+  .stack { display: flex; height: 14px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+  .stack > i { display: block; height: 100%; }
+  .stack .script-mark { width: 100%; background: repeating-linear-gradient(45deg, var(--script), var(--script) 4px, transparent 4px, transparent 8px); opacity: .7; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bars { display: grid; grid-template-columns: minmax(90px, 170px) 1fr 50px; gap: 6px 10px; align-items: center; font-size: 12px; }
+  .bar { height: 10px; border-radius: 5px; background: var(--chip); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+  .signals { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+  .sig { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 12px; }
+  .sig b { font-size: 18px; min-width: 26px; text-align: center; }
+  .sig.hot { border-color: var(--warn); }
+  .sig span { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  td:first-child { white-space: nowrap; }
+  td:last-child { min-width: 260px; }
+  th { color: var(--muted); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  .scroll table { min-width: 620px; }
+  @media (max-width: 560px) { .run { grid-template-columns: 1fr auto; grid-template-areas: "name num" "bar bar"; } }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main id="app"><div class="empty">Chưa có dữ liệu. Chạy <code>.\tools\run-report.ps1</code>.</div></main>
+<script>
+const DATA = /*__DATA__*/null;
+const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content; };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmtTok = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(Math.round(n || 0));
+const fmtMin = (ms) => ms ? (ms / 60000).toFixed(1) + ' phút' : '—';
+const fmtUsd = (n) => '$' + (n || 0).toFixed(2);
+const statusClass = (s) => s === 'DONE_PENDING_FEEL' ? 's-ok' : /^BLOCKED|ESCALATE/.test(s) ? (s === 'BLOCKED_TOOLCHAIN' || s === 'BLOCKED_QUOTA' ? 's-warn' : 's-bad') : 's-mute';
+const statusLabel = (s) => ({ DONE_PENDING_FEEL: 'PASS', BLOCKED_TOOLCHAIN: 'TOOLCHAIN', BLOCKED_QUOTA: 'QUOTA', BLOCKED_BUDGET: 'BUDGET', INCOMPLETE: 'dở' }[s] || s);
+
+function render(d) {
+  const t = d.totals, app = document.getElementById('app');
+  app.innerHTML = '';
+  const filt = [d.filter.wp && 'WP ' + d.filter.wp, d.filter.since && 'từ ' + d.filter.since].filter(Boolean).join(' · ');
+  app.append($(`<h1>Run report · ${esc(d.root)}</h1>
+    <div class="sub">Tạo lúc ${esc(d.generatedAt.replace('T', ' '))}${filt ? ' · ' + esc(filt) : ''} · nguồn: handoff/**/runs + interventions.jsonl</div>`));
+
+  const passRate = t.runs ? Math.round(100 * t.pass / t.runs) : 0;
+  app.append($(`<section class="grid kpis">
+    <div class="card kpi"><div class="v">${t.runs}</div><div class="l">run · ${t.aiRuns} AI · ${t.scriptRuns} script</div></div>
+    <div class="card kpi"><div class="v">${passRate}%</div><div class="l">PASS (${t.pass}/${t.runs})</div></div>
+    <div class="card kpi"><div class="v">${fmtTok(t.tokens)}</div><div class="l">token · impl ${fmtTok(t.implTokens)} · review ${fmtTok(t.reviewTokens)}</div></div>
+    <div class="card kpi"><div class="v">${fmtUsd(t.costUsd)}</div><div class="l">tiền đo được (reviewer Claude)</div></div>
+    <div class="card kpi"><div class="v">${fmtMin(t.durationMs)}</div><div class="l">tổng thời gian chạy</div></div>
+    <div class="card kpi good"><div class="v">~${fmtTok(t.savedTokensEst)}</div><div class="l">token tiết kiệm nhờ script verify (ước tính)</div></div>
+  </section>`));
+
+  // Runs timeline: mỗi run một thanh token xếp chồng.
+  const maxTok = Math.max(1, ...d.runs.map(r => r.tokens));
+  const rows = d.runs.map(r => {
+    const w = (v) => (100 * v / maxTok).toFixed(1) + '%';
+    const bar = r.kind === 'script' ? `<div class="stack" title="script verify, 0 token"><i class="script-mark"></i></div>`
+      : r.usageKnown ? `<div class="stack" title="impl ${r.implTokens} · review ${r.reviewTokens}"><i style="width:${w(r.implTokens)};background:var(--impl)"></i><i style="width:${w(r.reviewTokens)};background:var(--rev)"></i></div>`
+      : `<div class="stack" title="run cũ chưa ghi usage"></div>`;
+    const models = r.models.filter(m => !m.startsWith('script:')).map(m => `<span class="chip">${esc(m.replace('implementer:', '⚙ ').replace('reviewer:', '👁 '))}</span>`).join('');
+    const verdicts = r.verdicts.map(v => `<span class="chip">${esc(v)}</span>`).join('');
+    return `<div class="run"><div class="name" title="${esc(r.dir)}\n${esc(r.reason)}"><span class="pill ${statusClass(r.status)}">${esc(statusLabel(r.status))}</span> ${esc(r.task)}<small>${esc(r.at)} · ${r.kind === 'script' ? 'script' : esc(r.host || '—')}${r.rounds ? ' · ' + r.rounds + ' vòng' : ''}</small></div>
+      <div class="viz">${bar}<div>${models}${verdicts}</div></div>
+      <div class="num"><b>${r.kind === 'script' ? '0' : r.usageKnown ? fmtTok(r.tokens) : '?'}</b>${r.costUsd ? `<div class="sub">${fmtUsd(r.costUsd)}</div>` : ''}${r.durationMs ? `<div class="sub">${fmtMin(r.durationMs)}</div>` : ''}</div></div>`;
+  }).join('');
+  app.append($(`<section class="card" style="margin-bottom:12px"><h2>Từng run</h2>
+    <div class="legend"><span><i style="background:var(--impl)"></i>implementer</span><span><i style="background:var(--rev)"></i>reviewer</span><span><i style="background:var(--script)"></i>script verify (0 token)</span><span>? = run cũ chưa ghi usage</span></div>
+    ${d.runs.length ? `<div class="runs">${rows}</div>` : '<div class="empty">Chưa có run nào.</div>'}</section>`));
+
+  const barList = (obj, valueOf, labelOf) => {
+    const entries = Object.entries(obj || {});
+    if (!entries.length) return '<div class="empty">—</div>';
+    const max = Math.max(1, ...entries.map(([, v]) => valueOf(v)));
+    return `<div class="bars">${entries.sort((a, b) => valueOf(b[1]) - valueOf(a[1])).map(([k, v]) =>
+      `<div title="${esc(k)}">${esc(k)}</div><div class="bar"><i style="width:${(100 * valueOf(v) / max).toFixed(1)}%"></i></div><div class="num">${labelOf(v)}</div>`).join('')}</div>`;
+  };
+  const models = Object.fromEntries(Object.entries(d.models || {}).filter(([k]) => !k.startsWith('script:')));
+  app.append($(`<section class="grid two">
+    <div class="card"><h2>Token theo model</h2>${barList(models, v => v.tokens, v => fmtTok(v.tokens))}</div>
+    <div class="card"><h2>Trạng thái run</h2>${barList(d.byStatus, v => v, v => v)}</div>
+    <div class="card"><h2>Verdict reviewer</h2>${barList(d.verdicts, v => v, v => v)}</div>
+    <div class="card"><h2>Lần cần người (interventions)</h2>${barList(d.interventionsByState, v => v, v => v)}</div>
+  </section>`));
+
+  // Harvest signals: số > 0 là thứ nên đọc khi harvest (workflow/harvest.md §4).
+  const h = d.harvest, sig = (n, title, hint) => `<div class="sig ${n ? 'hot' : ''}"><b>${n}</b><div>${title}<br><span>${hint}</span></div></div>`;
+  const lint = d.lint && !d.lint.error ? d.lint : null;
+  app.append($(`<section class="card" style="margin-bottom:12px"><h2>Tín hiệu harvest</h2><div class="signals">
+    ${sig(h.reviewOverrides, 'Reviewer PASS sai', 'review bị người/Template sửa lại → xem lại luật reviewer')}
+    ${sig(h.patchRuns, 'Run cần PATCH', 'lỗi implementer lặp lại → anti-pattern / packet thiếu')}
+    ${sig(h.loopCap, 'Chạm loop cap', 'task quá to hoặc target mơ hồ')}
+    ${sig(h.targetReconsider, 'TARGET_RECONSIDER', 'direction/spec cần PO xem lại')}
+    ${sig(h.blockedToolchain, 'BLOCKED_TOOLCHAIN', 'máy/host thiếu gì → doctor')}
+    ${sig(h.blockedQuota + h.blockedBudget, 'Hết quota / chạm trần token', 'profile/budget chưa hợp task')}
+    ${sig(t.usageUnknownRuns, 'Run AI không có số usage', 'runner cũ; không tính vào tổng')}
+    ${lint ? sig(lint.fail + lint.warn, 'template-lint', `${lint.fail} FAIL · ${lint.warn} WARN`) : ''}
+  </div></section>`));
+
+  if (d.interventions.length) {
+    app.append($(`<section class="card"><h2>Interventions</h2><div class="scroll"><table>
+      <tr><th>Lúc</th><th>Task</th><th>Loại</th><th>Lý do</th></tr>
+      ${d.interventions.slice().reverse().map(i => `<tr><td>${esc(i.at)}</td><td>${esc(i.task)}</td><td><span class="pill ${statusClass(i.state)}">${esc(i.state)}</span></td><td>${esc(i.reason)}</td></tr>`).join('')}
+    </table></div>
+    ${lint && lint.findings.length ? `<details><summary>template-lint (${lint.findings.length})</summary><table>${lint.findings.map(f => `<tr><td>${esc(f.severity)}</td><td>${esc(f.rule)}</td><td>${esc(f.path)}</td><td>${esc(f.detail)}</td></tr>`).join('')}</table></details>` : ''}
+    </section>`));
+  }
+}
+if (DATA) render(DATA);
+</script>
+</body>
+</html>

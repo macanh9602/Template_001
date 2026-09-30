@@ -1,0 +1,47 @@
+{
+  "schema": "reuse-registry/v1",
+  "notes": "He thong co san phai dung lai + mau code 'viet lai' can bat. Project them he thong cua minh (AudioController, EffectsProfile...). Giai thich: Docs/reuse-registry.md.",
+  "scan": {
+    "include": ["Assets/_Core/4_Scripts/**/*.cs"],
+    "exclude": ["**/Editor/**", "**/Tests/**"]
+  },
+  "systems": [
+    {
+      "name": "VTLTools.ObjectPool",
+      "path": "Assets/Plugins/VTLTools (hoac noi project dat)",
+      "useFor": "spawn/despawn object trong gameplay interaction",
+      "avoid": [
+        { "pattern": "(?<![\\w.])(Object\\.)?Instantiate\\s*[<(]", "why": "gameplay spawn phai qua ObjectPool.Spawn (AGENTS.md 5: khong Instantiate/Destroy trong gameplay interaction)" },
+        { "pattern": "(?<![\\w.])(Object\\.)?Destroy\\s*\\(", "why": "tra ve pool bang ObjectPool.Recycle thay vi Destroy" }
+      ],
+      "allowIn": ["**/Pool/**", "**/HUD/**", "**/UIPopUp/**"]
+    },
+    {
+      "name": "PrefabProfile (prefab + shared material)",
+      "path": "Profile ScriptableObject cua project",
+      "useFor": "visual placeholder va material: prefab that, shared material + MaterialPropertyBlock",
+      "avoid": [
+        { "pattern": "GameObject\\.CreatePrimitive\\s*\\(", "why": "AGENTS.md 5: khong CreatePrimitive trong runtime path; placeholder la prefab that" },
+        { "pattern": "new\\s+Material\\s*\\(", "why": "AGENTS.md 5: khong new Material; dung shared material + MaterialPropertyBlock" },
+        { "pattern": "Shader\\.Find\\s*\\(", "why": "AGENTS.md 5: khong Shader.Find; material di qua PrefabProfile" }
+      ]
+    },
+    {
+      "name": "UniTask",
+      "path": "com.cysharp.unitask",
+      "useFor": "async/logic theo thoi gian (AGENTS.md 9)",
+      "avoid": [
+        { "pattern": "StartCoroutine\\s*\\(", "why": "logic moi dung UniTask, khong coroutine" }
+      ]
+    },
+    {
+      "name": "Tham chieu scene qua inject / SerializeField",
+      "path": "Docs/runtime-architecture.md",
+      "useFor": "lay tham chieu object trong scene",
+      "avoid": [
+        { "pattern": "FindObjectOfType|FindFirstObjectByType|FindAnyObjectByType|FindObjectsOfType|FindObjectsByType", "why": "AGENTS.md 5: khong scene search trong gameplay loop" },
+        { "pattern": "GameObject\\.Find(WithTag|GameObjectsWithTag)?\\s*\\(", "why": "AGENTS.md 5: khong GameObject.Find trong gameplay loop" }
+      ]
+    }
+  ]
+}

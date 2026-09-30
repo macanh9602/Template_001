@@ -633,6 +633,13 @@ Open-Page $DashboardPath
 
 # ---------------------------------------------------------------- prompts
 
+$Registry = $null
+$reuseModule = Join-Path $PSScriptRoot 'ReuseRegistry.psm1'
+if (Test-Path $reuseModule) {
+    Import-Module $reuseModule -Force
+    try { $Registry = Read-ReuseRegistry $ProjectRoot } catch { Write-Warning "reuse registry: $($_.Exception.Message) (bo qua reuse check)" }
+}
+
 $writeSetText = (@($TaskObj.writeSet) | ForEach-Object { "- $_" }) -join "`n"
 $acceptText = (@($TaskObj.acceptance) | ForEach-Object { "- [$($_.kind)] $($_.text)" }) -join "`n"
 $reuseText = if ($TaskObj.mustReuse) { (@($TaskObj.mustReuse) | ForEach-Object { "- $_" }) -join "`n" } else { '- (none)' }
@@ -680,6 +687,7 @@ Read and execute: ``$($TaskObj.packet)``
 - Do not edit approved visual target files. Target ref: $targetText
 - Must reuse (do not re-implement):
 $reuseText
+$(if ($Registry) { '- Project systems to reuse before writing new ones: Docs/reuse-registry.json (the runner checks added lines against it).' })
 - Unity MCP server name: $ImplMcp
 - Do not commit, push, or rewrite git history.
 - You do NOT judge the result. Do not write review files. Do not claim PASS or DONE.
@@ -707,7 +715,8 @@ SUMMARY: <one line of what you did and the observed numbers>
 "@
 }
 
-function New-ReviewerPrompt([int]$Round, [string]$ResultPath, [string]$DiffPath) {
+function New-ReviewerPrompt([int]$Round, [string]$ResultPath, [string]$DiffPath, [string]$ReusePath) {
+    $reuseLine = if ($ReusePath) { "`n- Reuse check (script, lines added this round vs Docs/reuse-registry.json): ``$(Get-RelPath $ReusePath)``" } else { '' }
     return @"
 # Runner task $($TaskObj.id) - independent reviewer (round $Round)
 
@@ -719,7 +728,8 @@ Judge the implementer's work against the packet and acceptance. Be concrete; cit
 - Result (runner-computed changed files, implementer summary): ``$(Get-RelPath $ResultPath)``
 - Diff of this round: ``$(Get-RelPath $DiffPath)``
 - Evidence files listed in the result.
-- Target ref: $targetText
+- Target ref: $targetText$reuseLine
+- Must reuse: $(if ($TaskObj.mustReuse) { @($TaskObj.mustReuse) -join ', ' } else { '(none)' })
 
 ## Acceptance
 $acceptText
@@ -734,6 +744,8 @@ $acceptText
   ($baselineText), a commit from before the work under test. The runner's base commit is the state
   WITH the work under test, so failing there proves nothing. No baselineRef, or no evidence at it
   => treat the failure as caused by the work under test (PATCH), never as pre-existing.
+- Each reuse-check hit re-implements a system the project already has (registry / mustReuse): PATCH to use that system,
+  unless the result or packet gives a concrete reason it cannot be used. Absence of hits proves nothing; still read the diff.
 - A failing test whose assertion contradicts a locked rule of the packet is a stale test: PATCH with the
   instruction to update the test to the locked rule, citing the rule.
 
@@ -917,6 +929,15 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     $untracked = @($changed | Where-Object { $tracked -notcontains $_ })
     if ($untracked.Count) { $diffText += "`n# untracked/new files:`n" + (($untracked | ForEach-Object { "+ $_" }) -join "`n") }
     Write-Text "$p.diff" $diffText
+    # Reuse check (0 token): dong moi them khop mau 'avoid' cua Docs/reuse-registry.json -> chung cu cho reviewer.
+    $reusePath = $null
+    if ($Registry) {
+        $reuseHits = @(Find-ReuseBypassInChange $Registry $ProjectRoot $diffText $untracked)
+        $reusePath = "$p.reuse.md"
+        $reuseBody = if ($reuseHits.Count) { ($reuseHits | ForEach-Object { "- ``$($_.path):$($_.line)`` **$($_.system)**: $($_.why)`n  ``$($_.text)``" }) -join "`n" } else { '- none' }
+        Write-Text $reusePath "# Reuse check round $round (script, Docs/reuse-registry.json)`n`n$($reuseHits.Count) hit on lines added this round:`n`n$reuseBody`n"
+        if ($reuseHits.Count) { Write-Host "[$($TaskObj.id)] round $round - reuse check: $($reuseHits.Count) dong nghi viet lai he thong co san ($(Get-RelPath $reusePath))" }
+    }
 
     if ($status -eq 'IMPLEMENTED' -and $outOfScope.Count) {
         $status = 'BLOCKED'; $blocker = "ghi ngoai writeSet: $($outOfScope -join ', ')"
@@ -941,7 +962,7 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     }
 
     Write-Host "[$($TaskObj.id)] round $round - reviewer (claude, read-only) ..."
-    Write-Text "$p.reviewer.prompt.md" (New-ReviewerPrompt $round "$p.result.json" "$p.diff")
+    Write-Text "$p.reviewer.prompt.md" (New-ReviewerPrompt $round "$p.result.json" "$p.diff" $reusePath)
     $revStep = Start-Step 'reviewer' $round 'claude'
     $rv = Invoke-Reviewer "$p.reviewer.prompt.md" "$p.reviewer.out.txt"
     if (-not $rv.Review -or @('PASS', 'PATCH', 'TARGET_RECONSIDER', 'BLOCKED') -notcontains [string]$rv.Review.verdict) {

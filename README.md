@@ -101,12 +101,18 @@ workflow/
   verification.md
   harvest.md
   run-task.md          doctor + runner + task/result/review
+  visual-direction.md  lab → proposal → PO promote → Import → visual-review
 
 tools/
   doctor.ps1           capability máy + từng agent host (Unity MCP headless thật)
   run-task.ps1         task.json → implementer → git diff → reviewer read-only → PATCH/PASS
   template-lint.ps1    chặn root song song, meta mồ côi, path máy, BOM, ref gãy, package trôi
   run-dashboard.html   trang duyệt kế hoạch + tiến độ agent (runner tự điền dữ liệu)
+  run-report.ps1       tổng hợp mọi run: token, tiền, thời gian, trạng thái + tín hiệu harvest → handoff/_reports/run-report.html
+  promote-direction.ps1  PO promote visual direction theo section (look / motion / fx)
+  new-game.ps1         mở game mới từ Template: tên, code, namespace, bundle id, dọn phần riêng của Template
+  ReuseRegistry.psm1   quét code viết lại hệ thống có sẵn (Docs/reuse-registry.json) cho lint + runner
+  UnityMcp.psm1        gọi Unity MCP từ script (verify 0 token)
 
 config/
   run-profiles.json    profile balanced / economy / fast / quality: model, effort, tier, số vòng sửa
@@ -192,7 +198,7 @@ Không viết sẵn 10–15 story chi tiết khi architecture/foundation chưa v
 
 ## Chạy task không cần PO làm trung gian
 
-Máy mới: `tools/doctor.ps1 -Repair`. Task: `tools/run-task.ps1 -Task handoff/<wp>/tasks/<id>.json -Commit`.
+Game mới: `tools/new-game.ps1 -Name ... -Code ... -Namespace ... -BundleId ...`. Máy mới: `tools/doctor.ps1 -Repair`. Task: `tools/run-task.ps1 -Task handoff/<wp>/tasks/<id>.json -Commit`. Chi phí + harvest: `tools/run-report.ps1`.
 Trước khi publish/merge pack: `tools/template-lint.ps1`. Chi tiết: `workflow/run-task.md`.
 
 ---

@@ -12,10 +12,11 @@
     ABS_PATH        Path tuyet doi cua may (C:\..., D:/...) trong file text duoc commit.
     BOM             JSON/JSONL co UTF-8 BOM (json.load fail) - handoff/Docs/templates/tools.
     PS1_NON_ASCII   tools/*.ps1 co ky tu ngoai ASCII (Windows PowerShell 5.1 doc sai, hong parse).
-    DANGLING_REF    `path` trong .md tro toi file/folder khong ton tai.
+    DANGLING_REF    `path` trong .md tro toi file/folder khong ton tai (tru file README.md cua folder khai la output khi chay).
     PKG_FLOATING    Git package trong Packages/manifest.json troi theo branch (#main, khong #).
     PRODUCT_NAME    Project that van mang productName cua Template.
     GITIGNORE       Thieu ignore cho file machine-local cua toolchain.
+    REUSE_BYPASS    Code khop mau 'avoid' trong Docs/reuse-registry.json (viet lai he thong co san). WARN.
 
   FAIL -> exit 1. WARN khong chan.
 
@@ -127,7 +128,16 @@ foreach ($f in $Tracked) {
             $refPath = ($ref -split '#')[0] -replace '/$', ''
             # File machine-local (gitignored) hop le khi co ban .example di kem.
             $example = [regex]::Replace($refPath, '(\.[^./]+)$', '.example$1')
-            if (-not (Test-Path -LiteralPath (Join-Path $Root $refPath)) -and -not (Test-Path -LiteralPath (Join-Path $Root $example))) {
+            # File sinh ra khi chay project (vd handoff/visual/CURRENT) hop le khi README.md cua folder khai ten no trong `...`.
+            $declared = $false
+            $readme = Join-Path $Root ((Split-Path -Parent $refPath) + '/README.md')
+            if (Test-Path -LiteralPath $readme) {
+                $leaf = Split-Path -Leaf $refPath
+                $pattern = '`' + [regex]::Escape($leaf).Replace('NNN', '[^`]*') + '`'
+                $declared = ([System.IO.File]::ReadAllText($readme) -match $pattern)
+                if (-not $declared -and $leaf -match 'NNN') { $declared = ([System.IO.File]::ReadAllText($readme) -match [regex]::Escape('`' + $leaf + '`')) }
+            }
+            if (-not $declared -and -not (Test-Path -LiteralPath (Join-Path $Root $refPath)) -and -not (Test-Path -LiteralPath (Join-Path $Root $example))) {
                 Add-Finding 'DANGLING_REF' 'WARN' "$f`:$($i + 1)" "tro toi '$refPath' khong ton tai"
             }
         }
@@ -162,6 +172,21 @@ $giText = if (Test-Path $gi) { Get-Content $gi -Raw } else { '' }
 foreach ($need in @('/.toolchain/', '/.toolchain.local.json', '/Docs/asset-pipeline.json')) {
     if ($giText -notmatch [regex]::Escape($need)) {
         Add-Finding 'GITIGNORE' 'WARN' '.gitignore' "thieu '$need' (file machine-local)"
+    }
+}
+
+# ---------------------------------------------------------------- REUSE_BYPASS
+
+$reuseModule = Join-Path $PSScriptRoot 'ReuseRegistry.psm1'
+if (Test-Path $reuseModule) {
+    Import-Module $reuseModule -Force
+    try {
+        $registry = Read-ReuseRegistry $Root
+        foreach ($h in @(Find-ReuseBypass $registry $Root)) {
+            Add-Finding 'REUSE_BYPASS' 'WARN' "$($h.path):$($h.line)" "$($h.system): $($h.why) | $($h.text)"
+        }
+    } catch {
+        Add-Finding 'REUSE_BYPASS' 'FAIL' 'Docs/reuse-registry.json' $_.Exception.Message
     }
 }
 

@@ -65,6 +65,26 @@ một thể loại. Những thứ đó ở lại `Docs/` của project.
 
 ---
 
+## 3b. Cuối mỗi WP — số liệu, không trí nhớ
+
+```powershell
+.\tools\run-report.ps1 -Wp <wp>        # → handoff/_reports/run-report.html
+```
+
+Trang report gom tự động (không gọi AI): token/tiền/thời gian từng run, model nào tốn bao nhiêu, script verify tiết kiệm
+bao nhiêu, và **tín hiệu harvest**. Mỗi ô tín hiệu > 0 là một câu hỏi harvest:
+
+| Tín hiệu | Hỏi |
+|---|---|
+| Reviewer PASS sai (`REVIEW_OVERRIDE`) | luật reviewer / prompt thiếu gì → `workflow/run-task.md` bảng bài học |
+| Run cần PATCH | lỗi lặp của implementer → `standards/anti-patterns.md` hoặc packet thiếu `Pre-decided` |
+| Chạm loop cap · TARGET_RECONSIDER | task quá to / target mơ hồ → cắt task, sửa spec |
+| BLOCKED_TOOLCHAIN · quota · budget | máy/host/profile → doctor, `config/run-profiles.json` |
+| `REUSE_BYPASS` (lint) / reuse check trong run | hệ thống bị viết lại → thêm vào `Docs/reuse-registry.json` hoặc `mustReuse` |
+| Task PASS bằng AI mà acceptance đo được bằng máy | chuyển sang `verify` script (0 token) |
+
+---
+
 ## 4. Cuối project — harvest lớn
 
 Chạy một lần cho toàn bộ project, trước khi đóng:

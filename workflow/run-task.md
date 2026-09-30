@@ -159,6 +159,9 @@ Usage lấy từ output thật: Claude `--output-format json` (token, `total_cos
 Mọi lần cần người ⇒ một dòng trong `handoff/<wp>/interventions.jsonl`. Đó là KPI:
 **số lần PO phải can thiệp từ Goal tới playable/final review**.
 
+**Đo:** `.\tools\run-report.ps1` gom mọi run + interventions → `handoff/_reports/run-report.html`
+(token/tiền/thời gian từng run, theo model, script verify tiết kiệm bao nhiêu, tín hiệu harvest). Không gọi AI.
+
 ## 5. Luật reviewer (tóm tắt)
 
 - PASS chỉ khi mọi item `auto` + `review` có evidence.
@@ -166,6 +169,8 @@ Mọi lần cần người ⇒ một dòng trong `handoff/<wp>/interventions.jso
   phần việc đang kiểm — fail ở đó không chứng minh gì.
 - Test mâu thuẫn với luật đã khoá trong packet = test lỗi thời ⇒ PATCH cập nhật test theo luật.
 - Không bao giờ đề xuất đổi target đã APPROVED như một PATCH.
+- Reuse check: runner quét **dòng mới thêm** mỗi round theo `Docs/reuse-registry.json` → `r<n>.reuse.md`. Mỗi hit
+  (viết lại hệ thống đã có) ⇒ PATCH dùng hệ thống đó, trừ khi result/packet nêu lý do cụ thể.
 
 ## 6. Parallel
 
@@ -188,3 +193,4 @@ Nhiều task được ở `EXECUTABLE` cùng lúc (`handoff/ROADMAP.md`). Chạy
 | Codex mất shell (`Access is denied`) | sandbox Windows không spawn được `pwsh` bản Microsoft Store | doctor WARN `SANDBOX_SHELL`: cài PowerShell 7 bản MSI hoặc `-CodexSandbox danger-full-access` |
 | Script verify lần đầu trên Unity thật: `run_tests` "không trả job_id", console "0 dòng" | FastMCP bọc kết quả trong `{"result": {...}}`, còn server giả trả thẳng | module bóc `result`; đọc console mà sai định dạng thì báo lỗi, không coi là 0 dòng (nếu coi là 0 dòng thì `maxCount 0` sẽ PASS giả) |
 | Script verify: parity "không khớp `(fail 0)`" dù parity 38/38 PASS | `read_console` chỉ trả dòng đầu (`[MotionParity]`) của log nhiều dòng | kiểm bằng log level: `log` có ≥1 dòng (`minCount`), `warning/error` có 0 dòng |
+| Worker tự viết 4 `AudioSource` thay vì `AudioController` có sẵn; reviewer không bắt | không có danh sách hệ thống phải dùng lại để đối chiếu | `Docs/reuse-registry.json`: lint `REUSE_BYPASS` + runner quét dòng mới thêm mỗi round → `r<n>.reuse.md` cho reviewer |
