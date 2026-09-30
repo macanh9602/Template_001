@@ -707,7 +707,18 @@ function Invoke-Implementer([string]$PromptPath, [string]$LogPath, [string]$Last
     }
     if ($usage -and $null -eq $usage.durationMs) { $usage.durationMs = $sw.ElapsedMilliseconds }
     Write-Text $LastMsgPath $text
-    return [pscustomobject]@{ Text = $text; Usage = $usage }
+    return [pscustomobject]@{ Text = $text; Usage = $usage; Code = $r.Code; Raw = $r.Text }
+}
+
+# Implementer ket thuc ma khong co RESULT: thuong la host loi ngay (het quota, mang, sandbox, auth).
+# Dua exit code + vai dong loi cuoi vao ly do de dashboard noi duoc nguyen nhan, khong phai mo log.
+function Get-HostFailureHint($Impl) {
+    $lines = @(($Impl.Raw -split "`r?`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $err = @($lines | Where-Object { $_ -match '(?i)error|limit|quota|denied|unauthori|forbidden|failed|timeout|rate' } | Select-Object -Last 2)
+    if ($err.Count -eq 0) { $err = @($lines | Select-Object -Last 2) }
+    $hint = ($err -join ' | ')
+    if ($hint.Length -gt 300) { $hint = $hint.Substring(0, 300) + '...' }
+    return "exit=$($Impl.Code); $hint"
 }
 
 function Invoke-Reviewer([string]$PromptPath, [string]$LogPath) {
@@ -733,7 +744,7 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     $impl = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.out.txt" "$p.implementer.last.md"
     $msg = $impl.Text
 
-    $status = 'BLOCKED'; $blocker = 'implementer khong in dong RESULT:'
+    $status = 'BLOCKED'; $blocker = "implementer khong in dong RESULT: ($(Get-HostFailureHint $impl))"
     if ($msg -match '(?m)^\s*RESULT:\s*IMPLEMENTED\b') { $status = 'IMPLEMENTED'; $blocker = $null }
     elseif ($msg -match '(?m)^\s*RESULT:\s*BLOCKED:?\s*(.*)$') { $blocker = $Matches[1].Trim() }
     $evidence = @()
