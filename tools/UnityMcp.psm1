@@ -174,8 +174,14 @@ function Invoke-VerifySteps {
                     [string[]]$types = @(if ($s.types) { @($s.types) } else { 'error' })
                     $a = @{ action = 'get'; types = [object[]]$types; count = 200; format = 'json' }
                     if ($s.filter) { $a['filter_text'] = [string]$s.filter }
-                    $payload = Invoke-UnityTool -Name 'read_console' -Arguments $a
-                    $entries = Get-ConsoleEntries $payload
+                    # waitSec: viec bat dong bo (capture trong Play Mode...) -> doc lai moi 5 s toi khi du minCount hoac het gio.
+                    $waitUntil = (Get-Date).AddSeconds([int]$(if ($s.waitSec) { $s.waitSec } else { 0 }))
+                    while ($true) {
+                        $payload = Invoke-UnityTool -Name 'read_console' -Arguments $a -RetryForSec 300
+                        $entries = Get-ConsoleEntries $payload
+                        if ($null -eq $s.minCount -or $entries.Count -ge [int]$s.minCount -or (Get-Date) -ge $waitUntil) { break }
+                        Start-Sleep -Seconds 5
+                    }
                     $text = ($entries -join "`n")
                     $ok = $true
                     $why = @()
