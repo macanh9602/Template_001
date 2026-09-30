@@ -133,7 +133,7 @@ function barsBlock(stats, profiles, current) {
 function timeline(run) {
   if (!run.steps?.length) return '<div class="sub" style="margin-top:8px">Không có chi tiết từng bước (run cũ).</div>';
   return `<div class="tl">${run.steps.map(s => {
-    const who = s.role === 'implementer' ? `🛠 ${esc(s.host)}` : `🔎 ${esc(s.host)}`;
+    const who = s.role === 'implementer' ? `🛠 ${esc(s.host)}${s.resumed ? ' ↻' : ''}` : `🔎 ${esc(s.host)}`;
     const st = s.state === 'running' ? 'running' : (s.verdict || s.outcome || '');
     const detail = s.state === 'running' ? 'đang chạy…' : esc(s.verdict || s.outcome || 'xong');
     const u = s.usage || {};
@@ -221,7 +221,7 @@ function renderPlan(d) {
       <div class="node"><div class="t">🛠 Implementer</div><div class="n">${esc(im.host)}</div>${chips({ model: im.model || (im.host === p.exec.implementer.host ? eff(p.exec.implementer, 'model') : 'mặc định tài khoản'), effort: im.effort || (im.host === p.exec.implementer.host ? eff(p.exec.implementer, 'effort') : null) || 'mặc định', tier: im.host === 'codex' ? (im.serviceTier || 'standard') : null })}</div>
       <span class="arrow">→</span>
       <div class="node"><div class="t">🔎 Reviewer (chỉ đọc)</div><div class="n">claude</div>${chips({ model: rv.model || eff(p.exec.reviewer, 'model'), effort: rv.effort || eff(p.exec.reviewer, 'effort') || 'mặc định' })}</div>
-      <span class="loop">↺ sửa tối đa ${state.maxPatchRounds} vòng${p.exec.budget?.maxTokensPerRun ? ` · trần ${num(p.exec.budget.maxTokensPerRun)} token` : ''}</span>
+      <span class="loop">↺ sửa tối đa ${state.maxPatchRounds} vòng${p.exec.resumeOnPatch ? ' (tiếp phiên cũ)' : ''}${p.exec.budget?.maxTokensPerRun ? ` · trần ${num(p.exec.budget.maxTokensPerRun)} token` : ''}</span>
       <span class="arrow">→</span>
       <div class="node"><div class="t">Kết quả</div><div class="n">Đạt / Báo người</div><div class="sub">Tự commit khi đạt</div></div>
     </div></section>`));

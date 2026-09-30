@@ -52,6 +52,8 @@ param(
     [switch]$Yes,
     # Khong tu mo trang HTML.
     [switch]$NoOpen,
+    # Vong sua (PATCH) mo phien implementer moi thay vi tiep tuc phien vong truoc.
+    [switch]$NoResume,
     [string]$Implementer = '',
     [int]$CapabilityMaxAgeMinutes = 480,
     [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write',
@@ -352,7 +354,7 @@ function Add-Usage($Bucket, $U) {
 }
 
 function Start-Step([string]$Role, [int]$Round, [string]$HostName) {
-    $step = [ordered]@{ round = $Round; role = $Role; host = $HostName; state = 'running'; startedAt = (Get-Date).ToString('HH:mm:ss'); outcome = $null; verdict = $null; usage = $null }
+    $step = [ordered]@{ round = $Round; role = $Role; host = $HostName; state = 'running'; startedAt = (Get-Date).ToString('HH:mm:ss'); outcome = $null; verdict = $null; usage = $null; resumed = $false }
     $Progress.steps += , $step
     Save-Progress $true
     return $step
@@ -530,6 +532,9 @@ $Exec = [ordered]@{
 
 $Exec.implementer.effective = (Resolve-Effective $Exec.implementer $ImplHost)
 $Exec.reviewer.effective = (Resolve-Effective $Exec.reviewer 'claude')
+# Vong sua tiep tuc phien implementer cua vong truoc (codex exec resume / claude --resume): khong doc lai
+# packet, code, AGENTS tu dau. Pilot: vong 2 phien moi ton 132k token chi de sua 1 dong. Reviewer luon phien moi.
+$Exec.resumeOnPatch = (-not $NoResume) -and ($null -eq $Prof.resumeOnPatch -or [bool]$Prof.resumeOnPatch)
 $Exec.budget = [ordered]@{ maxTokensPerRun = $null; implementerMaxUsd = $null; reviewerMaxUsd = $null }
 if ($Prof.budget) { foreach ($k in @('maxTokensPerRun', 'implementerMaxUsd', 'reviewerMaxUsd')) { if ($null -ne $Prof.budget.$k) { $Exec.budget[$k] = $Prof.budget.$k } } }
 $Machine = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { [System.Net.Dns]::GetHostName() }
@@ -559,6 +564,7 @@ function Show-PlanConsole {
     Write-Host ("  implementer : {0,-7} model={1} effort={2}{3}" -f $i.host, (& $fmt $ie.model $ie.modelSource), (& $fmt $ie.effort $ie.effortSource), $(if ($i.host -eq 'codex') { " tier=$(if ($ie.serviceTier) { & $fmt $ie.serviceTier $ie.serviceTierSource } else { 'standard' })" } else { '' }))
     Write-Host ("  reviewer    : claude  model={0} effort={1} (chi doc)" -f (& $fmt $re.model $re.modelSource), (& $fmt $re.effort $re.effortSource))
     if ($Exec.budget.maxTokensPerRun) { Write-Host "  tran token  : $($Exec.budget.maxTokensPerRun) / run" }
+    Write-Host "  vong sua    : $(if ($Exec.resumeOnPatch) { 'tiep tuc phien implementer cu' } else { 'phien moi moi vong' })"
     foreach ($w in $PlanWarnings) { Write-Host "  CANH BAO    : $w" -ForegroundColor Yellow }
 }
 
@@ -631,6 +637,8 @@ function New-ImplementerPrompt([int]$Round, [string]$PrevReviewPath) {
 ## Round $Round - apply review findings
 
 An independent reviewer returned PATCH. Read ``$(Get-RelPath $PrevReviewPath)`` and fix every finding.
+If this conversation already contains your previous round, do not re-read files you already know; only
+re-check what the findings touch.
 Do not re-litigate the findings; if one is impossible, end with RESULT: BLOCKED and say why.
 "@
     }
@@ -721,25 +729,31 @@ function Get-ClaudeExecArgs($Cfg, $MaxUsd) {
     return $a
 }
 
-function Invoke-Implementer([string]$PromptPath, [string]$LogPath, [string]$LastMsgPath) {
+function Invoke-Implementer([string]$PromptPath, [string]$LogPath, [string]$LastMsgPath, [string]$ResumeId) {
     $instruction = "Read the file $(Get-RelPath $PromptPath) and follow it exactly."
     $cfg = $Exec.implementer
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $session = $null
     if ($ImplHost -eq 'claude') {
         $tools = @('Read', 'Grep', 'Glob', 'Edit', 'Write')
         if ($ImplMcp) { $tools += "mcp__$ImplMcp" }
-        $r = Invoke-Native $ImplExe (@('-p', $instruction, '--output-format', 'json', '--permission-mode', 'acceptEdits') + (Get-ClaudeExecArgs $cfg $Exec.budget.implementerMaxUsd) + @('--allowedTools') + $tools) $LogPath
+        $resumeArgs = if ($ResumeId) { @('--resume', $ResumeId) } else { @() }
+        $r = Invoke-Native $ImplExe (@('-p', $instruction, '--output-format', 'json', '--permission-mode', 'acceptEdits') + $resumeArgs + (Get-ClaudeExecArgs $cfg $Exec.budget.implementerMaxUsd) + @('--allowedTools') + $tools) $LogPath
         $obj = Get-JsonObjectFromText $r.Text
         $text = if ($obj -and $obj.result) { [string]$obj.result } else { '' }
+        if ($obj -and $obj.session_id) { $session = [string]$obj.session_id }
         $usage = Get-ClaudeUsage $r.Text
     } else {
         # -c value khong bao nhay: PS 5.1 lam hong dau nhay trong tham so native; codex doc gia tri tran la chuoi.
-        $cx = @('exec', '-s', $CodexSandbox)
+        # 'exec resume' khong co -s: sandbox truyen qua -c sandbox_mode.
+        $cx = if ($ResumeId) { @('exec', 'resume', '-c', "sandbox_mode=$CodexSandbox") } else { @('exec', '-s', $CodexSandbox) }
         if ($cfg.model) { $cx += @('-m', [string]$cfg.model) }
         if ($cfg.effort) { $cx += @('-c', "model_reasoning_effort=$($cfg.effort)") }
         if ($cfg.serviceTier) { $cx += @('-c', "service_tier=$($cfg.serviceTier)") }
         if (Test-Path $LastMsgPath) { Remove-Item -LiteralPath $LastMsgPath -Force }
-        $r = Invoke-Native $ImplExe ($cx + @('-o', $LastMsgPath, $instruction)) $LogPath
+        $tail = if ($ResumeId) { @('-o', $LastMsgPath, $ResumeId, $instruction) } else { @('-o', $LastMsgPath, $instruction) }
+        $r = Invoke-Native $ImplExe ($cx + $tail) $LogPath
+        if ($r.Text -match '(?m)^session id:\s*([0-9a-fA-F-]{36})') { $session = $Matches[1] }
         # Chi tin tin nhan cuoi (-o). Log tho co ca noi dung prompt Codex da doc (co dong RESULT: mau);
         # pilot economy: Codex het quota giua chung, runner doc nham 'RESULT: IMPLEMENTED' tu log.
         $text = if (Test-Path $LastMsgPath) { [System.IO.File]::ReadAllText($LastMsgPath) } else { '' }
@@ -747,7 +761,8 @@ function Invoke-Implementer([string]$PromptPath, [string]$LogPath, [string]$Last
     }
     if ($usage -and $null -eq $usage.durationMs) { $usage.durationMs = $sw.ElapsedMilliseconds }
     Write-Text $LastMsgPath $text
-    return [pscustomobject]@{ Text = $text; Usage = $usage; Code = $r.Code; Raw = $r.Text }
+    if (-not $session -and $ResumeId) { $session = $ResumeId }
+    return [pscustomobject]@{ Text = $text; Usage = $usage; Code = $r.Code; Raw = $r.Text; Session = $session; Resumed = [bool]$ResumeId }
 }
 
 # Het quota/rate limit cua host: khong phai loi task; bao ro thoi diem thu lai, khong goi reviewer.
@@ -783,6 +798,7 @@ function Invoke-Reviewer([string]$PromptPath, [string]$LogPath) {
 # ---------------------------------------------------------------- loop
 
 $prevReview = $null
+$ImplSession = $null
 $maxRounds = $Exec.maxPatchRounds + 1
 for ($round = 1; $round -le $maxRounds; $round++) {
     $p = Join-Path $RunDir "r$round"
@@ -796,7 +812,17 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     Write-Host "[$($TaskObj.id)] round $round - implementer ($ImplHost) ..."
     $Progress.rounds = $round
     $implStep = Start-Step 'implementer' $round $ImplHost
-    $impl = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.out.txt" "$p.implementer.last.md"
+    $resumeId = $null
+    if ($round -gt 1 -and $Exec.resumeOnPatch -and $ImplSession) { $resumeId = $ImplSession }
+    $impl = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.out.txt" "$p.implementer.last.md" $resumeId
+    if ($resumeId -and -not $impl.Text -and -not (Get-QuotaHint $impl.Raw)) {
+        # Phien cu khong mo lai duoc (het han, bi xoa, loi CLI): chay lai vong nay bang phien moi.
+        Write-Host "[$($TaskObj.id)] round $round - khong tiep tuc duoc phien $resumeId, mo phien moi"
+        Move-Item -LiteralPath "$p.implementer.out.txt" -Destination "$p.implementer.resume-failed.out.txt" -Force -ErrorAction SilentlyContinue
+        $impl = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.out.txt" "$p.implementer.last.md" $null
+    }
+    if ($impl.Session) { $script:ImplSession = $impl.Session }
+    $implStep.resumed = $impl.Resumed
     $msg = $impl.Text
 
     $status = 'BLOCKED'; $blocker = "implementer khong in dong RESULT: ($(Get-HostFailureHint $impl))"
@@ -828,7 +854,7 @@ for ($round = 1; $round -le $maxRounds; $round++) {
         schema = 'result/v1'; taskId = $TaskObj.id; round = $round; host = $ImplHost; status = $status; blocker = $blocker
         baseCommit = $BaseCommit; targetRef = $TaskObj.targetRef; changedFiles = @($changed); outOfScope = $outOfScope
         evidence = $evidence; summary = $summary; log = (Get-RelPath "$p.implementer.out.txt"); diff = (Get-RelPath "$p.diff")
-        exec = $Exec.implementer; usage = $impl.Usage
+        exec = $Exec.implementer; usage = $impl.Usage; session = $impl.Session; resumed = $impl.Resumed
     }
     Write-Json "$p.result.json" $result
     Stop-Step $implStep $status $null $impl.Usage

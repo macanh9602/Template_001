@@ -83,6 +83,10 @@ qua), `rN.diff`, `rN.result.json`, `rN.review.json`, `status.json`, `unity-edito
   `{"profiles":{"economy":{"implementer":{"codex":{"model":"<model rẻ của tài khoản này>"}}}}}`.
 - `budget.maxTokensPerRun`: đã vượt thì **không mở vòng sửa kế tiếp** (`BLOCKED_BUDGET`). `reviewerMaxUsd` /
   `implementerMaxUsd` ⇒ `--max-budget-usd` cho Claude. Codex không có cờ giới hạn trong một lần gọi.
+- **Vòng sửa tiếp tục phiên implementer cũ** (`codex exec resume <id>` / `claude -p --resume <id>`): không đọc lại
+  packet, AGENTS, code từ đầu. Pilot: vòng 2 bằng phiên mới tốn 132k token chỉ để sửa 1 dòng. Reviewer **luôn phiên mới**
+  (độc lập). Không mở lại được phiên ⇒ tự chạy lại vòng đó bằng phiên mới. Tắt: `-NoResume` hoặc `"resumeOnPatch": false`
+  trong profile. Dashboard đánh dấu bước tiếp phiên bằng `↻`.
 - Runner tự chạy doctor với `-SkipSmoke` (không gọi model); doctor giữ kết quả smoke PASS ≤ 7 ngày. Chỉ chạy
   `doctor.ps1` đầy đủ khi đổi máy/đổi cấu hình host.
 
