@@ -188,7 +188,7 @@ function Test-CanStart($It, $Running) {
 
 function Start-TaskProcess($It) {
     $others = @($items | Where-Object { $_.id -ne $It.id } | ForEach-Object { $_.writeSet }) + $sharedGlobs
-    # Mot chuoi lenh, tu boc nhay: path co dau cach (D:\Unity Project\...) va glob co ';'.
+    # Mot chuoi lenh, tu boc nhay: path co dau cach (vd C:\... co khoang trang) va glob co ';'.
     $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Format-Arg $RunTask), '-Task', (Format-Arg $It.path), '-Yes', '-NoOpen',
         '-ExternalWriteSet', (Format-Arg ($others -join ';')))
     if ($RunProfile) { $argList += @('-RunProfile', (Format-Arg $RunProfile)) }
