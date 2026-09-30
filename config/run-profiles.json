@@ -1,8 +1,8 @@
 {
   "schema": "run-profiles/v1",
-  "_note": "Profile cho tools/run-task.ps1. null = để host tự chọn (theo ~/.codex/config.toml hoặc setting Claude). Sửa file này để đổi mặc định của project; ghi đè từng lần bằng -Profile/-ImplementerModel/... Xem workflow/run-task.md.",
+  "_note": "Profile cho tools/run-task.ps1. null = để host tự chọn (theo ~/.codex/config.toml hoặc setting Claude). Model khả dụng khác nhau theo tài khoản: ghi đè theo máy trong config/run-profiles.local.json (gitignored), vd {\"profiles\":{\"economy\":{\"implementer\":{\"codex\":{\"model\":\"<model rẻ của tài khoản này>\"}}}}}. budget.maxTokensPerRun: dừng trước vòng sửa kế tiếp khi đã vượt; *MaxUsd: --max-budget-usd cho Claude.",
   "default": "balanced",
-  "confirmBeforeDispatch": false,
+  "confirmBeforeDispatch": true,
   "profiles": {
     "balanced": {
       "label": "Cân bằng (mặc định)",
@@ -23,6 +23,11 @@
           "model": null,
           "effort": "medium"
         }
+      },
+      "budget": {
+        "maxTokensPerRun": 400000,
+        "implementerMaxUsd": null,
+        "reviewerMaxUsd": 1.0
       }
     },
     "economy": {
@@ -44,6 +49,11 @@
           "model": "sonnet",
           "effort": "low"
         }
+      },
+      "budget": {
+        "maxTokensPerRun": 200000,
+        "implementerMaxUsd": null,
+        "reviewerMaxUsd": 0.5
       }
     },
     "fast": {
@@ -65,6 +75,11 @@
           "model": "sonnet",
           "effort": "low"
         }
+      },
+      "budget": {
+        "maxTokensPerRun": 400000,
+        "implementerMaxUsd": null,
+        "reviewerMaxUsd": 1.0
       }
     },
     "quality": {
@@ -86,6 +101,11 @@
           "model": "opus",
           "effort": "high"
         }
+      },
+      "budget": {
+        "maxTokensPerRun": 800000,
+        "implementerMaxUsd": null,
+        "reviewerMaxUsd": 2.0
       }
     }
   }

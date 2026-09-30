@@ -399,7 +399,8 @@ if ((Get-CapabilityAgeMinutes) -gt $CapabilityMaxAgeMinutes) {
         Write-Host '[runner] capabilities thieu/qua han -> chay tools/doctor.ps1 ...'
         $prevEap = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
-        try { & $doctor | Out-Host } finally { $ErrorActionPreference = $prevEap }
+        # -SkipSmoke: khong mo phien Codex/Claude that (ton quota); doctor giu ket qua smoke PASS <= 7 ngay.
+        try { & $doctor -SkipSmoke | Out-Host } finally { $ErrorActionPreference = $prevEap }
     }
 }
 $age = Get-CapabilityAgeMinutes
@@ -440,9 +441,23 @@ $ReviewerExe = $Cap.hosts.claude.exe
 # ---------------------------------------------------------------- profile -> exec plan
 
 
+# Ghi de theo may (gitignored): model kha dung khac nhau theo tai khoan (pilot: may cong ty co Luna, may nha chi co Sol).
+function Merge-Json($Base, $Over) {
+    foreach ($prop in $Over.PSObject.Properties) {
+        $cur = $Base.PSObject.Properties[$prop.Name]
+        if ($cur -and $cur.Value -is [pscustomobject] -and $prop.Value -is [pscustomobject]) { Merge-Json $cur.Value $prop.Value | Out-Null }
+        else { $Base | Add-Member -NotePropertyName $prop.Name -NotePropertyValue $prop.Value -Force }
+    }
+    return $Base
+}
 function Get-RunProfiles {
     $pp = Join-Path $ProjectRoot 'config/run-profiles.json'
-    if (Test-Path $pp) { return (Read-Json $pp) }
+    $lp = Join-Path $ProjectRoot 'config/run-profiles.local.json'
+    if (Test-Path $pp) {
+        $base = Read-Json $pp
+        if (Test-Path $lp) { $base = Merge-Json $base (Read-Json $lp) }
+        return $base
+    }
     return ('{"default":"balanced","confirmBeforeDispatch":false,"profiles":{"balanced":{"label":"balanced","maxPatchRounds":2}}}' | ConvertFrom-Json)
 }
 function Select-Value($Override, $FromProfile) { if ($Override) { return $Override } return $FromProfile }
@@ -515,6 +530,24 @@ $Exec = [ordered]@{
 
 $Exec.implementer.effective = (Resolve-Effective $Exec.implementer $ImplHost)
 $Exec.reviewer.effective = (Resolve-Effective $Exec.reviewer 'claude')
+$Exec.budget = [ordered]@{ maxTokensPerRun = $null; implementerMaxUsd = $null; reviewerMaxUsd = $null }
+if ($Prof.budget) { foreach ($k in @('maxTokensPerRun', 'implementerMaxUsd', 'reviewerMaxUsd')) { if ($null -ne $Prof.budget.$k) { $Exec.budget[$k] = $Prof.budget.$k } } }
+$Machine = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { [System.Net.Dns]::GetHostName() }
+
+# Model khong chi dinh => host dung mac dinh tai khoan; lay model do duoc o lan truoc (uu tien cung may) de canh bao.
+$PlanWarnings = @()
+if (-not $Exec.implementer.effective.model) {
+    $allRuns = Get-RunsData
+    $hist = @($allRuns | Where-Object { $_.observedModel -and $_.exec -and $_.exec.implementer.host -eq $ImplHost } | Sort-Object { [string]$_.startedAt } -Descending)
+    $same = @($hist | Where-Object { $_.machine -eq $Machine })
+    $last = if ($same.Count) { $same[0] } elseif ($hist.Count) { $hist[0] } else { $null }
+    if ($last) {
+        $Exec.implementer.effective.lastObserved = [string]$last.observedModel
+        $Exec.implementer.effective.lastObservedOn = $(if ($same.Count) { 'may nay' } else { 'may khac' })
+    }
+    $PlanWarnings += ("Chua chi dinh model cho $ImplHost - se dung mac dinh tai khoan" + $(if ($last) { " (lan truoc tren $($Exec.implementer.effective.lastObservedOn): $($last.observedModel))" } else { '' }) + '. Chi dinh model de kiem soat chi phi.')
+}
+if (-not $Exec.budget.maxTokensPerRun) { $PlanWarnings += 'Khong co tran token cho run nay (budget.maxTokensPerRun).' }
 
 function Show-PlanConsole {
     $i = $Exec.implementer; $r = $Exec.reviewer
@@ -525,6 +558,8 @@ function Show-PlanConsole {
     $fmt = { param($v, $src) if ($v) { if ($src -eq 'profile') { $v } else { "$v ($src)" } } else { $dash } }
     Write-Host ("  implementer : {0,-7} model={1} effort={2}{3}" -f $i.host, (& $fmt $ie.model $ie.modelSource), (& $fmt $ie.effort $ie.effortSource), $(if ($i.host -eq 'codex') { " tier=$(if ($ie.serviceTier) { & $fmt $ie.serviceTier $ie.serviceTierSource } else { 'standard' })" } else { '' }))
     Write-Host ("  reviewer    : claude  model={0} effort={1} (chi doc)" -f (& $fmt $re.model $re.modelSource), (& $fmt $re.effort $re.effortSource))
+    if ($Exec.budget.maxTokensPerRun) { Write-Host "  tran token  : $($Exec.budget.maxTokensPerRun) / run" }
+    foreach ($w in $PlanWarnings) { Write-Host "  CANH BAO    : $w" -ForegroundColor Yellow }
 }
 
 function Write-PlanPage([string]$OutPath) {
@@ -542,6 +577,7 @@ function Write-PlanPage([string]$OutPath) {
             taskPath = ((Get-RelPath $TaskPath) -replace '/', '\')
             task = [ordered]@{ id = $TaskObj.id; packet = $TaskObj.packet; acceptance = @($TaskObj.acceptance); writeSet = @($TaskObj.writeSet); requires = @($TaskObj.requires) }
             exec = $Exec; profiles = $Profiles.profiles; hosts = $hosts; knownModels = [ordered]@{ codex = $codexModels }
+            warnings = @($PlanWarnings); machine = $Machine
         }
     }
     Write-DashboardHtml $OutPath $data $false
@@ -570,7 +606,7 @@ $Ignore = @($RunsRel, '.toolchain/', (Get-RelPath $InterventionsPath))
 Write-Host "[$($TaskObj.id)] implementer=$ImplHost reviewer=claude profile=$($Exec.profile) base=$($BaseCommit.Substring(0, 8)) run=$(Get-RelPath $RunDir)"
 $Progress = [ordered]@{
     schema = 'run-progress/v1'; taskId = $TaskObj.id; status = 'RUNNING'; reason = $null; rounds = 0
-    host = $ImplHost; profile = $Exec.profile; exec = $Exec; observedModel = $null
+    host = $ImplHost; profile = $Exec.profile; exec = $Exec; observedModel = $null; machine = $Machine
     startedAt = (Format-RunStamp $RunStamp); baseCommit = $BaseCommit
     usage = [ordered]@{ implementer = [ordered]@{}; reviewer = [ordered]@{}; total = [ordered]@{} }
     steps = @()
@@ -677,10 +713,11 @@ Reply with ONLY one JSON object, no prose, no code fence:
 
 # ---------------------------------------------------------------- host invocation
 
-function Get-ClaudeExecArgs($Cfg) {
+function Get-ClaudeExecArgs($Cfg, $MaxUsd) {
     $a = @()
     if ($Cfg.model) { $a += @('--model', [string]$Cfg.model) }
     if ($Cfg.effort) { $a += @('--effort', [string]$Cfg.effort) }
+    if ($MaxUsd) { $a += @('--max-budget-usd', ([string]$MaxUsd)) }
     return $a
 }
 
@@ -691,7 +728,7 @@ function Invoke-Implementer([string]$PromptPath, [string]$LogPath, [string]$Last
     if ($ImplHost -eq 'claude') {
         $tools = @('Read', 'Grep', 'Glob', 'Edit', 'Write')
         if ($ImplMcp) { $tools += "mcp__$ImplMcp" }
-        $r = Invoke-Native $ImplExe (@('-p', $instruction, '--output-format', 'json', '--permission-mode', 'acceptEdits') + (Get-ClaudeExecArgs $cfg) + @('--allowedTools') + $tools) $LogPath
+        $r = Invoke-Native $ImplExe (@('-p', $instruction, '--output-format', 'json', '--permission-mode', 'acceptEdits') + (Get-ClaudeExecArgs $cfg $Exec.budget.implementerMaxUsd) + @('--allowedTools') + $tools) $LogPath
         $obj = Get-JsonObjectFromText $r.Text
         $text = if ($obj -and $obj.result) { [string]$obj.result } else { '' }
         $usage = Get-ClaudeUsage $r.Text
@@ -735,7 +772,7 @@ function Get-HostFailureHint($Impl) {
 
 function Invoke-Reviewer([string]$PromptPath, [string]$LogPath) {
     $instruction = "Read the file $(Get-RelPath $PromptPath) and follow it exactly. Output only the JSON object."
-    $r = Invoke-Native $ReviewerExe (@('-p', $instruction, '--output-format', 'json') + (Get-ClaudeExecArgs $Exec.reviewer) + @('--allowedTools', 'Read', 'Grep', 'Glob')) $LogPath
+    $r = Invoke-Native $ReviewerExe (@('-p', $instruction, '--output-format', 'json') + (Get-ClaudeExecArgs $Exec.reviewer $Exec.budget.reviewerMaxUsd) + @('--allowedTools', 'Read', 'Grep', 'Glob')) $LogPath
     $outer = Get-JsonObjectFromText $r.Text
     $session = if ($outer -and $outer.session_id) { [string]$outer.session_id } else { 'unknown' }
     $inner = $null
@@ -749,8 +786,14 @@ $prevReview = $null
 $maxRounds = $Exec.maxPatchRounds + 1
 for ($round = 1; $round -le $maxRounds; $round++) {
     $p = Join-Path $RunDir "r$round"
-    Write-Host "[$($TaskObj.id)] round $round - implementer ($ImplHost) ..."
     Write-Text "$p.implementer.prompt.md" (New-ImplementerPrompt $round $prevReview)
+    $spent = $Progress.usage.total['tokens']
+    if ($Exec.budget.maxTokensPerRun -and $spent -and $spent -ge [long]$Exec.budget.maxTokensPerRun) {
+        $why = "da dung $spent token >= tran $($Exec.budget.maxTokensPerRun); khong mo vong $round"
+        Add-Intervention 'BLOCKED_BUDGET' $why
+        Complete-Run 'BLOCKED_BUDGET' $why ($round - 1)
+    }
+    Write-Host "[$($TaskObj.id)] round $round - implementer ($ImplHost) ..."
     $Progress.rounds = $round
     $implStep = Start-Step 'implementer' $round $ImplHost
     $impl = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.out.txt" "$p.implementer.last.md"

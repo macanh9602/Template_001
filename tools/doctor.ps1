@@ -335,6 +335,24 @@ if ($Hosts -contains 'codex') { Test-CodexHost }
 
 # ---------------------------------------------------------------- Report
 
+# -SkipSmoke khong goi model; giu lai ket qua smoke PASS gan day (<= 7 ngay) de runner van dispatch duoc.
+# Runner tu goi doctor voi -SkipSmoke khi capabilities qua han: truoc day moi lan do mo mot phien Codex that (ton quota).
+$outPath = Join-Path $ProjectRoot '.toolchain/capabilities.json'
+if ($SkipSmoke -and (Test-Path $outPath)) {
+    try {
+        $prev = [System.IO.File]::ReadAllText($outPath) | ConvertFrom-Json
+        $prevAge = ((Get-Date) - [DateTime]::Parse($prev.generatedAt)).TotalDays
+        if ($prevAge -le 7) {
+            foreach ($c in @($prev.checks)) {
+                if ($c.status -ne 'PASS' -or @('UNITY_MCP_SMOKE_PASS', 'REVIEWER_READONLY') -notcontains $c.level) { continue }
+                $cfgOk = @($Results | Where-Object { $_.host -eq $c.host -and $_.level -eq 'UNITY_MCP_CONFIGURED' -and $_.status -eq 'PASS' }).Count -gt 0
+                $already = @($Results | Where-Object { $_.host -eq $c.host -and $_.level -eq $c.level }).Count -gt 0
+                if ($cfgOk -and -not $already) { Add-Check $c.host $c.level 'PASS' "cached $($prev.generatedAt.ToString().Substring(0, 16)) ($($c.detail))" }
+            }
+        }
+    } catch { }
+}
+
 $Results | Format-Table host, level, status, detail -AutoSize -Wrap | Out-String -Width 200 | Write-Host
 
 $capabilities = [ordered]@{
@@ -345,7 +363,6 @@ $capabilities = [ordered]@{
     hosts       = $HostInfo
     checks      = $Results
 }
-$outPath = Join-Path $ProjectRoot '.toolchain/capabilities.json'
 Write-Utf8NoBom $outPath ($capabilities | ConvertTo-Json -Depth 5)
 Write-Host "capabilities -> $outPath"
 

@@ -74,6 +74,18 @@ qua), `rN.diff`, `rN.result.json`, `rN.review.json`, `status.json`, `unity-edito
 | `fast` | cần nhanh: Codex `service_tier=priority`, effort `medium` |
 | `quality` | việc khó: effort `xhigh`, reviewer `opus`, 3 vòng sửa |
 
+**Kiểm soát chi phí (bài học pilot: ~760k token Codex, model Sol dùng mà không ai được báo trước):**
+
+- `confirmBeforeDispatch: true` là mặc định: runner luôn in kế hoạch và hỏi `y/N` (bỏ qua bằng `-Yes`).
+- Model **không chỉ định** ⇒ cảnh báo trong terminal và trên trang kế hoạch, kèm model đo được ở lần trước trên máy này.
+- **Model khả dụng khác nhau theo tài khoản** (máy công ty có Luna, máy nhà chỉ có Sol): ghi model theo máy vào
+  `config/run-profiles.local.json` (gitignored, ghi đè từng khoá lên `run-profiles.json`), ví dụ
+  `{"profiles":{"economy":{"implementer":{"codex":{"model":"<model rẻ của tài khoản này>"}}}}}`.
+- `budget.maxTokensPerRun`: đã vượt thì **không mở vòng sửa kế tiếp** (`BLOCKED_BUDGET`). `reviewerMaxUsd` /
+  `implementerMaxUsd` ⇒ `--max-budget-usd` cho Claude. Codex không có cờ giới hạn trong một lần gọi.
+- Runner tự chạy doctor với `-SkipSmoke` (không gọi model); doctor giữ kết quả smoke PASS ≤ 7 ngày. Chỉ chạy
+  `doctor.ps1` đầy đủ khi đổi máy/đổi cấu hình host.
+
 `null` trong profile = để host tự chọn (theo `~/.codex/config.toml` / setting Claude).
 Ghi đè từng lần: `-Profile`, `-Implementer`, `-ImplementerModel`, `-ImplementerEffort`, `-CodexServiceTier`,
 `-ReviewerModel`, `-ReviewerEffort`, `-MaxPatchRounds`. Claude CLI chưa có cờ tăng tốc; "nhanh" hiện chỉ áp cho Codex.

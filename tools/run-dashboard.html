@@ -62,6 +62,7 @@
   th { color: var(--muted); font-weight: 500; }
   .tbl { overflow-x: auto; }
   .muted { color: var(--muted); }
+  .warn { border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--panel)); border-radius: 12px; padding: 10px 14px; margin-top: 12px; }
   ul.plain { margin: 0; padding-left: 18px; }
   section { margin-top: 18px; }
 </style>
@@ -79,7 +80,7 @@ const mins = (ms) => ms == null ? '—' : ms < 60000 ? Math.round(ms / 1000) + '
 const STATUS = {
   DONE_PENDING_FEEL: ['s-ok', 'Đạt – chờ feel'], RUNNING: ['s-run', 'Đang chạy'], PLANNED: ['s-run', 'Chờ duyệt'],
   'ESCALATE:LOOP_CAP': ['s-warn', 'Quá số vòng sửa'], BLOCKED_ON_TARGET: ['s-warn', 'Cần chốt lại target'],
-  BLOCKED: ['s-bad', 'Bị chặn'], BLOCKED_QUOTA: ['s-warn', 'Hết quota'], BLOCKED_TOOLCHAIN: ['s-bad', 'Thiếu công cụ'], CANCELLED: ['s-warn', 'Đã huỷ'],
+  BLOCKED: ['s-bad', 'Bị chặn'], BLOCKED_QUOTA: ['s-warn', 'Hết quota'], BLOCKED_BUDGET: ['s-warn', 'Chạm trần ngân sách'], BLOCKED_TOOLCHAIN: ['s-bad', 'Thiếu công cụ'], CANCELLED: ['s-warn', 'Đã huỷ'],
 };
 const pill = (s) => { const [c, l] = STATUS[s] || ['s-warn', s || '?']; return `<span class="pill ${c}">${esc(l)}</span>`; };
 // Model/effort hien thi: gia tri + nguon (profile / config.toml / settings.json / account = mac dinh tai khoan).
@@ -89,6 +90,7 @@ const eff = (cfg, key, observed) => {
   if (cfg?.[key]) return cfg[key];
   if (e?.[key]) return e[key] + (SRC[e[key + 'Source']] ?? '');
   if (observed) return observed + ' · đo được';
+  if (key === 'model' && e?.lastObserved) return `mặc định tài khoản (lần trước: ${e.lastObserved})`;
   return key === 'model' ? 'mặc định tài khoản' : null;
 };
 const chips = (o) => Object.entries(o).filter(([, v]) => v != null && v !== '').map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join('');
@@ -210,14 +212,16 @@ function renderPlan(d) {
   function draw() {
     const im = state.implementer, rv = state.reviewer;
     app.innerHTML = '';
-    app.append($(`<div><h1>Duyệt trước khi giao — ${esc(p.task.id)}</h1><div class="sub">Chưa có gì được chạy. Chỉnh bên dưới, rồi copy lệnh để giao việc.</div></div>`));
+    app.append($(`<div><h1>Duyệt trước khi giao — ${esc(p.task.id)}</h1><div class="sub">Chưa có gì được chạy. Chỉnh bên dưới, rồi copy lệnh để giao việc. Máy: ${esc(p.machine || '')}</div></div>`));
+    const warns = (p.warnings || []).filter(w => !(state.implementer.model && /model/i.test(w)));
+    if (warns.length) app.append($(`<div class="warn"><b>⚠ Cần chú ý</b><ul class="plain">${warns.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>`));
     app.append($(`<section class="card"><h2>Luồng giao việc</h2><div class="pipe">
       <div class="node"><div class="t">Task</div><div class="n">${esc(p.task.id)}</div><div class="sub">${esc(p.task.packet)}</div></div>
       <span class="arrow">→</span>
       <div class="node"><div class="t">🛠 Implementer</div><div class="n">${esc(im.host)}</div>${chips({ model: im.model || (im.host === p.exec.implementer.host ? eff(p.exec.implementer, 'model') : 'mặc định tài khoản'), effort: im.effort || (im.host === p.exec.implementer.host ? eff(p.exec.implementer, 'effort') : null) || 'mặc định', tier: im.host === 'codex' ? (im.serviceTier || 'standard') : null })}</div>
       <span class="arrow">→</span>
       <div class="node"><div class="t">🔎 Reviewer (chỉ đọc)</div><div class="n">claude</div>${chips({ model: rv.model || eff(p.exec.reviewer, 'model'), effort: rv.effort || eff(p.exec.reviewer, 'effort') || 'mặc định' })}</div>
-      <span class="loop">↺ sửa tối đa ${state.maxPatchRounds} vòng</span>
+      <span class="loop">↺ sửa tối đa ${state.maxPatchRounds} vòng${p.exec.budget?.maxTokensPerRun ? ` · trần ${num(p.exec.budget.maxTokensPerRun)} token` : ''}</span>
       <span class="arrow">→</span>
       <div class="node"><div class="t">Kết quả</div><div class="n">Đạt / Báo người</div><div class="sub">Tự commit khi đạt</div></div>
     </div></section>`));
