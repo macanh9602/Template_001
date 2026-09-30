@@ -392,6 +392,17 @@ foreach ($f in @('id', 'packet', 'implementers', 'requires', 'writeSet', 'accept
 }
 if (-not (Test-Path $TaskObj.packet)) { throw "packet khong ton tai: $($TaskObj.packet)" }
 
+# targetRef 'handoff/visual/CURRENT[#section]' -> file direction cu the luc chay (vd direction.v003.json#motion),
+# de result/review ghi dung version da dung; tools/direction-delta.ps1 dua vao do de biet run nao STALE.
+$TargetRefRequested = [string]$TaskObj.targetRef
+if ($TargetRefRequested -match '^handoff/visual/CURRENT(#.*)?$') {
+    $frag = $Matches[1]
+    $ptr = Join-Path (Get-Location) 'handoff/visual/CURRENT'
+    if (-not (Test-Path $ptr)) { throw "targetRef $TargetRefRequested nhung chua co handoff/visual/CURRENT (promote-direction.ps1)" }
+    $resolved = ([System.IO.File]::ReadAllText($ptr)).Trim().TrimStart([char]0xFEFF) + $frag
+    $TaskObj | Add-Member -NotePropertyName targetRef -NotePropertyValue $resolved -Force
+}
+
 $WpDir = Split-Path -Parent (Split-Path -Parent $TaskPath)
 $RunStamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 $RunDir = Join-Path $WpDir ("runs/{0}/{1}" -f $TaskObj.id, $RunStamp)
@@ -630,7 +641,7 @@ $Ignore = @($RunsRel, '.toolchain/', (Get-RelPath $InterventionsPath))
 
 Write-Host "[$($TaskObj.id)] implementer=$ImplHost reviewer=claude profile=$($Exec.profile) base=$($BaseCommit.Substring(0, 8)) run=$(Get-RelPath $RunDir)"
 $Progress = [ordered]@{
-    schema = 'run-progress/v1'; taskId = $TaskObj.id; status = 'RUNNING'; reason = $null; rounds = 0
+    schema = 'run-progress/v1'; taskId = $TaskObj.id; status = 'RUNNING'; reason = $null; rounds = 0; targetRef = $TaskObj.targetRef
     host = $ImplHost; profile = $Exec.profile; exec = $Exec; observedModel = $null; machine = $Machine
     startedAt = (Format-RunStamp $RunStamp); baseCommit = $BaseCommit
     usage = [ordered]@{ script = [ordered]@{}; implementer = [ordered]@{}; reviewer = [ordered]@{}; total = [ordered]@{} }

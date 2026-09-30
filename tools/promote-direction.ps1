@@ -261,4 +261,5 @@ $logPath = Join-Path $VisualDir 'promotions.jsonl'
 [System.IO.File]::AppendAllText($logPath, (($log | ConvertTo-Json -Compress) + "`n"), (New-Object System.Text.UTF8Encoding $false))
 Write-Host "CURRENT -> $(Get-RelPath $outPath)"
 Write-Host 'Tiep theo (Unity): Tools/Visual Direction/Dry Run (log drift) -> Import approved sections.'
+if ($cur) { Write-Host 'Task nao can chay lai: .\tools\direction-delta.ps1' }
 Write-Host "Ghi decision vao Docs/decision-log.md neu day la quyet dinh cap project (vd khoa art direction)."

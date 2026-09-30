@@ -111,6 +111,7 @@ tools/
   run-batch.ps1        nhiều task song song có giới hạn: dependsOn, writeSet rời nhau, ≤ 1 luồng Unity
   run-report.ps1       tổng hợp mọi run: token, tiền, thời gian, trạng thái + tín hiệu harvest → handoff/_reports/run-report.html
   promote-direction.ps1  PO promote visual direction theo section (look / motion / fx)
+  direction-delta.ps1  direction vN → vN+1: đổi gì, Profile nào Import lại, task nào STALE
   new-game.ps1         mở game mới từ Template: tên, code, namespace, bundle id, dọn phần riêng của Template
   ReuseRegistry.psm1   quét code viết lại hệ thống có sẵn (Docs/reuse-registry.json) cho lint + runner
   UnityMcp.psm1        gọi Unity MCP từ script (verify 0 token)

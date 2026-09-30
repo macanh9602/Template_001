@@ -37,6 +37,7 @@
 | Xem trước promote | `.\tools\promote-direction.ps1 -Proposal handoff\visual\proposals\<id>.json -Sections look -DryRun` |
 | Promote | `... -Sections look,motion -By "<tên PO>"` |
 | Chuyển file cũ `<game>.visual-target/v1` | `.\tools\promote-direction.ps1 -Migrate handoff\wp-00X\visual-target.json` |
+| Direction đổi (vN → vN+1): đổi gì, Import gì, task nào STALE | `.\tools\direction-delta.ps1` (mặc định CURRENT vs bản nó supersedes) |
 | Drift giữa direction và Profile SO | Unity menu `Tools/Visual Direction/Dry Run (log drift)` |
 | Nhập số đã duyệt | `Tools/Visual Direction/Import approved sections` |
 | Motion parity | `Tools/Visual Direction/Motion Parity (CSV + so target)` |
@@ -51,7 +52,7 @@ Nhờ vậy script verify của runner kiểm được bằng log level, 0 token
 2. **Promote theo section.** Look thường khoá trước; Motion/FX mở tới checkpoint sau. Section chưa APPROVED: importer bỏ qua, parity đo được nhưng không PASS.
 3. **Direction vN bất biến.** Đổi hướng = proposal mới + promote ⇒ vN+1. Lịch sử ở `promotions.jsonl`; quyết định cấp project (khoá art direction) ghi thêm `Docs/decision-log.md`.
 4. **Profile SO là derived.** Field có trong `profileMap` chỉ đổi qua Import. Dry Run có drift ⇒ Import (hoặc ESCALATE nếu drift là chủ ý của ai đó).
-5. **Task/review ghi `targetRef` = file direction cụ thể**, không ghi "CURRENT". `targetRef` ≠ CURRENT ⇒ STALE, verify lại.
+5. **Task có thể ghi `targetRef: "handoff/visual/CURRENT#motion"`**; runner đổi thành file cụ thể lúc chạy (vd `direction.v003.json#motion`) và ghi vào result/review. Promote bản mới ⇒ `direction-delta.ps1` so run DONE gần nhất với CURRENT: phần task quan tâm có đổi ⇒ **STALE**, in lệnh `run-batch` để chạy lại (target delta, V2).
 6. **Implementer không sửa target.** Fix cần đổi số của section APPROVED ⇒ `TARGET_RECONSIDER` (reviewer) → proposal mới → PO.
 
 ## Project cần làm một lần
