@@ -174,7 +174,7 @@ if ((Test-Path $ps) -and -not $isTemplateRepo) {
 
 $gi = Join-Path $Root '.gitignore'
 $giText = if (Test-Path $gi) { Get-Content $gi -Raw } else { '' }
-foreach ($need in @('/.toolchain/', '/.toolchain.local.json', '/Docs/asset-pipeline.json')) {
+foreach ($need in @('/.toolchain/', '/.toolchain.local.json', '/Docs/asset-pipeline.json', '/.worktrees/')) {
     if ($giText -notmatch [regex]::Escape($need)) {
         Add-Finding 'GITIGNORE' 'WARN' '.gitignore' "thieu '$need' (file machine-local)"
     }

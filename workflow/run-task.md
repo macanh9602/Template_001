@@ -182,7 +182,7 @@ Nhiều task được ở `EXECUTABLE` cùng lúc (`handoff/ROADMAP.md`). Chạy
 
 ```powershell
 .\tools\run-batch.ps1 -Wp wp-005 -Plan                 # xem lịch: task nào không được chạy cùng nhau, vì sao
-.\tools\run-batch.ps1 -Wp wp-005 -MaxParallel 2 -Commit # chạy; commit từng task PASS sau khi cả batch xong
+.\tools\run-batch.ps1 -Wp wp-005 -MaxParallel 2 -Commit # chạy; task worktree tự cherry-pick, task Unity commit sau batch
 .\tools\run-batch.ps1 -Tasks a.json,b.json -VerifyOnly  # chỉ script verify, 0 token
 ```
 
@@ -197,8 +197,13 @@ Cùng working tree: mỗi runner nhận `-ExternalWriteSet` = writeSet của tas
 nên file của task kia không bị tính là "ghi ngoài writeSet". Không commit giữa chừng (tránh `index.lock`).
 Output: `handoff/_batch/<stamp>/<id>.out.txt` + `batch.json`.
 
-**Giới hạn V1:** task ghi **ra ngoài** writeSet của mình vào vùng writeSet của task khác thì runner không bắt được
-(file bị coi là của task kia). Cách chặn thật = worktree riêng mỗi task (V2).
+**Worktree (V2, mặc định):** task **không** dùng Unity chạy trong `git worktree` riêng (`.worktrees/<stamp>-<id>`, branch
+`batch/<stamp>/<id>`, tạo từ HEAD lúc bắt đầu). Runner ở đó chỉ thấy thay đổi của chính nó ⇒ ghi lấn sang vùng task khác bị bắt
+(`ghi ngoai writeSet`), không lọt vào tree chính. Xong ⇒ runner commit trong branch (PASS: code + evidence; BLOCKED: chỉ evidence),
+batch **cherry-pick** về branch hiện tại khi không còn task nào chạy trên tree chính, rồi xoá worktree + branch
+(`-KeepWorktrees` để giữ). Task phụ thuộc chỉ bắt đầu sau khi dependency đã cherry-pick. Cherry-pick xung đột ⇒ `FAILED`, giữ branch.
+Task dùng Unity vẫn chạy trên tree chính (Editor mở project ở đó) với `-ExternalWriteSet` như V1. `-NoIsolate` ⇒ mọi task như V1.
+File gitignored runner cần (`.toolchain/`, `config/run-profiles.local.json`) được chép sang worktree.
 
 ## 7. Bài học đã trả giá (pilot WP004, 2026-09-29/30)
 

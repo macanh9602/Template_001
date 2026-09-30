@@ -28,6 +28,10 @@ param(
     [switch]$Yes,
     [switch]$Commit,
     [int]$PollSec = 5,
+    # V2: task KHONG dung Unity chay trong git worktree rieng (.worktrees/), ket qua cherry-pick ve branch hien tai.
+    # Tat bang -NoIsolate (quay lai V1: cung working tree + -ExternalWriteSet).
+    [switch]$NoIsolate,
+    [switch]$KeepWorktrees,
     [string]$Root
 )
 
@@ -66,8 +70,8 @@ function Test-WriteSetOverlap($TaskA, $TaskB) {
     return $null
 }
 
-function Get-LatestRun([string]$TaskId) {
-    $dirs = @(Get-ChildItem -Path (Join-Path $Root 'handoff') -Directory -Recurse -Filter $TaskId -ErrorAction SilentlyContinue |
+function Get-LatestRun([string]$TaskId, [string]$Base = $Root) {
+    $dirs = @(Get-ChildItem -Path (Join-Path $Base 'handoff') -Directory -Recurse -Filter $TaskId -ErrorAction SilentlyContinue |
             Where-Object { (Split-Path -Leaf (Split-Path -Parent $_.FullName)) -eq 'runs' } |
             ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory | Where-Object { $_.Name -match '^\d{8}-\d{6}$' } } |
             Sort-Object Name)
@@ -102,6 +106,7 @@ foreach ($p in $paths) {
     $items.Add([pscustomobject]@{
             id = [string]$t.id; path = (Get-RelPath $full); writeSet = @($t.writeSet); dependsOn = @($t.dependsOn | Where-Object { $_ })
             resources = @($res); state = 'PENDING'; status = $null; reason = $null; proc = $null; out = $null; started = $null; finished = $null; runDir = $null
+            isolated = $false; wt = $null; branch = $null; base = $null
         })
 }
 $byId = @{}
@@ -152,7 +157,9 @@ foreach ($it in $items) {
     $dep = if ($it.dependsOn.Count) { " sau: $($it.dependsOn -join ', ')" } else { '' }
     $res = if ($it.resources.Count) { " [$($it.resources -join ',')]" } else { '' }
     $skip = if ($it.state -eq 'SKIPPED') { "  SKIP: $($it.reason)" } else { '' }
-    Write-Host ("  {0,-28}{1}{2}{3}" -f $it.id, $res, $dep, $skip)
+    $it.isolated = (-not $NoIsolate) -and ($it.resources -notcontains 'unity')
+    $iso = if ($it.isolated) { ' {worktree}' } else { '' }
+    Write-Host ("  {0,-28}{1}{2}{3}{4}" -f $it.id, $res, $iso, $dep, $skip)
 }
 $pairs = @($conflicts.Keys | Where-Object { ($_ -split '\|')[0] -lt ($_ -split '\|')[1] })
 if ($pairs.Count) {
@@ -171,6 +178,17 @@ $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 $BatchDir = Join-Path $Root "handoff/_batch/$stamp"
 New-Item -ItemType Directory -Path $BatchDir -Force | Out-Null
 $psExe = (Get-Process -Id $PID).Path
+# .worktrees/ phai bi git bo qua, neu khong runner tren working tree chinh thay file la -> 'ghi ngoai writeSet'.
+if (-not $NoIsolate -and @($items | Where-Object { $_.isolated }).Count) {
+    & git -C $Root check-ignore -q '.worktrees/x' 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        $exclude = Join-Path (& git -C $Root rev-parse --git-common-dir).Trim() 'info/exclude'
+        if (-not [System.IO.Path]::IsPathRooted($exclude)) { $exclude = Join-Path $Root $exclude }
+        New-Item -ItemType Directory -Path (Split-Path -Parent $exclude) -Force | Out-Null
+        [System.IO.File]::AppendAllText($exclude, "`n/.worktrees/`n")
+        Write-Host '  (them /.worktrees/ vao .git/info/exclude; nen them vao .gitignore)'
+    }
+}
 # File chung ma moi runner deu ghi: khong phai thay doi cua task nao.
 $sharedGlobs = @('handoff/**/runs/**', 'handoff/**/interventions.jsonl', 'handoff/_batch/**', 'handoff/_reports/**')
 
@@ -182,37 +200,72 @@ function Test-CanStart($It, $Running) {
         if (-not $byId.ContainsKey($d)) { continue }
         if ($byId[$d].state -ne 'DONE') { return $false }
     }
-    foreach ($r in $Running) { if ($conflicts.ContainsKey("$($It.id)|$($r.id)")) { return $false } }
+    # Task dang cho cherry-pick cung tinh: ket qua cua no chua ve HEAD, worktree moi se thieu no.
+    foreach ($r in @($items | Where-Object { $_.state -eq 'RUNNING' -or $_.state -eq 'MERGING' })) {
+        if ($conflicts.ContainsKey("$($It.id)|$($r.id)")) { return $false }
+    }
     return $true
 }
 
+# Worktree rieng tu HEAD hien tai (da gom ket qua cac task DONE truoc do). File gitignored can cho runner
+# (.toolchain/capabilities.json, config/*.local.json) duoc chep sang.
+function New-TaskWorktree($It) {
+    $It.base = (& git -C $Root rev-parse HEAD).Trim()
+    $It.branch = "batch/$stamp/$($It.id)"
+    $It.wt = Join-Path $Root ".worktrees/$stamp-$($It.id)"
+    & git -C $Root worktree add -q -b $It.branch $It.wt $It.base 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $It.wt)) { throw "git worktree add that bai cho $($It.id)" }
+    foreach ($rel in @('.toolchain', 'config/run-profiles.local.json', '.toolchain.local.json')) {
+        $src = Join-Path $Root $rel
+        if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination (Join-Path $It.wt $rel) -Recurse -Force }
+    }
+}
+
 function Start-TaskProcess($It) {
-    $others = @($items | Where-Object { $_.id -ne $It.id } | ForEach-Object { $_.writeSet }) + $sharedGlobs
-    # Mot chuoi lenh, tu boc nhay: path co dau cach (vd C:\... co khoang trang) va glob co ';'.
-    $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Format-Arg $RunTask), '-Task', (Format-Arg $It.path), '-Yes', '-NoOpen',
-        '-ExternalWriteSet', (Format-Arg ($others -join ';')))
+    $workDir = $Root
+    if ($It.isolated) {
+        New-TaskWorktree $It
+        $workDir = $It.wt
+        # Tach biet: chi co thay doi cua chinh no; commit trong branch rieng de cherry-pick ve.
+        $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Format-Arg (Join-Path $It.wt 'tools/run-task.ps1')), '-Task', (Format-Arg $It.path), '-Yes', '-NoOpen', '-Commit')
+    } else {
+        $others = @($items | Where-Object { $_.id -ne $It.id -and -not $_.isolated } | ForEach-Object { $_.writeSet }) + $sharedGlobs
+        # Mot chuoi lenh, tu boc nhay: path co dau cach (vd C:\... co khoang trang) va glob co ';'.
+        $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Format-Arg $RunTask), '-Task', (Format-Arg $It.path), '-Yes', '-NoOpen',
+            '-ExternalWriteSet', (Format-Arg ($others -join ';')))
+    }
     if ($RunProfile) { $argList += @('-RunProfile', (Format-Arg $RunProfile)) }
     if ($VerifyOnly) { $argList += '-VerifyOnly' }
     $It.out = Join-Path $BatchDir "$($It.id).out.txt"
     $It.started = Get-Date
-    $It.proc = Start-Process -FilePath $psExe -ArgumentList ($argList -join ' ') -WorkingDirectory $Root -NoNewWindow -PassThru `
+    $It.proc = Start-Process -FilePath $psExe -ArgumentList ($argList -join ' ') -WorkingDirectory $workDir -NoNewWindow -PassThru `
         -RedirectStandardOutput $It.out -RedirectStandardError (Join-Path $BatchDir "$($It.id).err.txt")
     $null = $It.proc.Handle   # PS 5.1: can giu handle thi ExitCode moi co gia tri
     $It.state = 'RUNNING'
-    Write-Host ("[{0}] START {1}" -f (Get-Date).ToString('HH:mm:ss'), $It.id)
+    Write-Host ("[{0}] START {1}{2}" -f (Get-Date).ToString('HH:mm:ss'), $It.id, $(if ($It.isolated) { " (worktree $(Get-RelPath $It.wt))" } else { '' }))
 }
 
 function Complete-Task($It) {
     $It.finished = Get-Date
-    $run = Get-LatestRun $It.id
+    $run = Get-LatestRun $It.id $(if ($It.isolated) { $It.wt } else { $Root })
     # Ten thu muc run = gio bat dau (yyyyMMdd-HHmmss); CreationTime khong dang tin tren moi filesystem.
     $runStamp = if ($run) { [datetime]::ParseExact($run.Name, 'yyyyMMdd-HHmmss', [System.Globalization.CultureInfo]::InvariantCulture) } else { $null }
     if ($run -and $runStamp -ge $It.started.AddSeconds(-5)) {
-        $It.runDir = Get-RelPath $run.FullName
+        $It.runDir = if ($It.isolated) { $run.FullName.Substring($It.wt.TrimEnd('\', '/').Length + 1) -replace '\\', '/' } else { Get-RelPath $run.FullName }
         $It.status = Get-RunStatus $run
     }
     if (-not $It.status) { $It.status = "EXIT_$($It.proc.ExitCode)" }
-    $It.state = if ($It.status -eq 'DONE_PENDING_FEEL') { 'DONE' } else { 'FAILED' }
+    if ($It.isolated) {
+        # Chua DONE cho toi khi ket qua ve branch hien tai (task phu thuoc can thay no).
+        $It.state = 'MERGING'
+        Write-Host ("[{0}] XONG   {1} ({2}) -> cho cherry-pick" -f (Get-Date).ToString('HH:mm:ss'), $It.id, $It.status)
+        return
+    }
+    Set-FinalState $It
+}
+
+function Set-FinalState($It) {
+    $It.state = if ($It.status -eq 'DONE_PENDING_FEEL' -and $It.state -ne 'FAILED') { 'DONE' } else { 'FAILED' }
     Write-Host ("[{0}] {1,-6} {2} ({3}, {4:N1} phut)" -f (Get-Date).ToString('HH:mm:ss'), $It.state, $It.id, $It.status, ($It.finished - $It.started).TotalMinutes)
     if ($It.state -eq 'FAILED') {
         # Task phu thuoc (truc tiep hoac gian tiep) khong chay nua.
@@ -227,7 +280,32 @@ function Complete-Task($It) {
     }
 }
 
+# Cherry-pick commit cua worktree ve branch hien tai (ca code lan evidence; task BLOCKED chi co evidence).
+function Merge-Isolated($It) {
+    $commits = @(& git -C $Root rev-list --reverse "$($It.base)..$($It.branch)")
+    $ok = $true
+    if ($commits.Count) {
+        & git -C $Root cherry-pick $commits 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            & git -C $Root cherry-pick --abort 2>&1 | Out-Null
+            $ok = $false
+            $It.reason = "cherry-pick xung dot; ket qua giu o branch $($It.branch)"
+        }
+    }
+    if (-not $ok) { $It.state = 'FAILED' }
+    Write-Host ("[{0}] MERGE  {1}: {2} commit{3}" -f (Get-Date).ToString('HH:mm:ss'), $It.id, $commits.Count, $(if ($ok) { '' } else { ' - XUNG DOT' }))
+    if (-not $KeepWorktrees) {
+        & git -C $Root worktree remove --force $It.wt 2>&1 | Out-Null
+        if ($ok) { & git -C $Root branch -D $It.branch 2>&1 | Out-Null }
+    }
+    Set-FinalState $It
+}
+
 while ($true) {
+    # Cherry-pick doi luc khong co task nao dang chay tren working tree chinh (tranh doi file duoi chan runner).
+    if (-not @($items | Where-Object { $_.state -eq 'RUNNING' -and -not $_.isolated }).Count) {
+        foreach ($m in @($items | Where-Object { $_.state -eq 'MERGING' })) { Merge-Isolated $m }
+    }
     $running = @($items | Where-Object { $_.state -eq 'RUNNING' })
     foreach ($r in $running) { if ($r.proc.HasExited) { Complete-Task $r } }
     $running = @($items | Where-Object { $_.state -eq 'RUNNING' })
@@ -235,7 +313,7 @@ while ($true) {
         if ($running.Count -ge $MaxParallel) { break }
         if (Test-CanStart $it $running) { Start-TaskProcess $it; $running = @($items | Where-Object { $_.state -eq 'RUNNING' }) }
     }
-    if (-not @($items | Where-Object { $_.state -eq 'RUNNING' }).Count) {
+    if (-not @($items | Where-Object { $_.state -eq 'RUNNING' -or $_.state -eq 'MERGING' }).Count) {
         $stuck = @($items | Where-Object { $_.state -eq 'PENDING' })
         foreach ($s in $stuck) { $s.state = 'SKIPPED'; $s.reason = 'khong the bat dau (phu thuoc chua DONE)' }
         break
@@ -256,7 +334,7 @@ Write-Host "BATCH xong -> $(Get-RelPath $BatchDir)"
 foreach ($it in $items) { Write-Host ("  {0,-8} {1,-28} {2}" -f $it.state, $it.id, $(if ($it.reason) { $it.reason } else { $it.status })) }
 
 if ($Commit) {
-    foreach ($it in @($items | Where-Object { $_.state -eq 'DONE' -and $_.runDir })) {
+    foreach ($it in @($items | Where-Object { $_.state -eq 'DONE' -and $_.runDir -and -not $_.isolated })) {
         $result = @(Get-ChildItem -LiteralPath (Join-Path $Root $it.runDir) -Filter 'r*.result.json' | Sort-Object Name)
         # @(if ...) ngoai: gan truc tiep tu if boc mang 1 phan tu thanh chuoi, roi chuoi + mang = noi chuoi.
         $changed = @(if ($result.Count) { (Read-JsonFile $result[-1].FullName).changedFiles })
