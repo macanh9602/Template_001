@@ -1,0 +1,87 @@
+{
+    "schema":  "run-progress/v1",
+    "taskId":  "P2-VISUAL-VERIFY",
+    "status":  "DONE_PENDING_FEEL",
+    "reason":  "script verify PASS, 0 token (7 buoc)",
+    "rounds":  0,
+    "host":  "codex",
+    "profile":  "balanced",
+    "exec":  {
+                 "profile":  "balanced",
+                 "maxPatchRounds":  2,
+                 "implementerDefault":  null,
+                 "implementer":  {
+                                     "host":  "codex",
+                                     "model":  null,
+                                     "effort":  "high",
+                                     "serviceTier":  "default",
+                                     "effective":  {
+                                                       "model":  "gpt-6-luna",
+                                                       "modelSource":  "config.toml",
+                                                       "effort":  "high",
+                                                       "effortSource":  "profile",
+                                                       "serviceTier":  "default",
+                                                       "serviceTierSource":  "profile"
+                                                   }
+                                 },
+                 "reviewer":  {
+                                  "host":  "claude",
+                                  "model":  null,
+                                  "effort":  "medium",
+                                  "effective":  {
+                                                    "model":  "sonnet",
+                                                    "modelSource":  "settings.json",
+                                                    "effort":  "medium",
+                                                    "effortSource":  "profile",
+                                                    "serviceTier":  null,
+                                                    "serviceTierSource":  "account"
+                                                }
+                              },
+                 "resumeOnPatch":  true,
+                 "budget":  {
+                                "maxTokensPerRun":  400000,
+                                "implementerMaxUsd":  null,
+                                "reviewerMaxUsd":  1.0
+                            }
+             },
+    "observedModel":  null,
+    "machine":  "DUCAN",
+    "startedAt":  "2026-09-30 14:41:05",
+    "baseCommit":  "5bc05d7065655d136d02ebaea5da118514aa88b1",
+    "usage":  {
+                  "script":  {
+                                 "tokens":  0,
+                                 "costUsd":  0,
+                                 "durationMs":  27681
+                             },
+                  "implementer":  {
+
+                                  },
+                  "reviewer":  {
+
+                               },
+                  "total":  {
+                                "tokens":  0,
+                                "costUsd":  0,
+                                "durationMs":  27681
+                            }
+              },
+    "steps":  [
+                  {
+                      "round":  0,
+                      "role":  "script",
+                      "host":  "unity-mcp",
+                      "state":  "done",
+                      "startedAt":  "14:41:06",
+                      "outcome":  "PASS",
+                      "verdict":  "PASS",
+                      "usage":  {
+                                    "model":  "script",
+                                    "tokens":  0,
+                                    "costUsd":  0,
+                                    "durationMs":  27681
+                                },
+                      "resumed":  false
+                  }
+              ]
+}

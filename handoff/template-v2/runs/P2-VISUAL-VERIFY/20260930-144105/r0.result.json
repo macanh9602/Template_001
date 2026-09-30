@@ -1,0 +1,31 @@
+{
+    "schema":  "result/v1",
+    "taskId":  "P2-VISUAL-VERIFY",
+    "round":  0,
+    "host":  "script",
+    "status":  "IMPLEMENTED",
+    "blocker":  null,
+    "baseCommit":  "5bc05d7065655d136d02ebaea5da118514aa88b1",
+    "targetRef":  null,
+    "changedFiles":  [
+                         "handoff/template-v2/captures/P2-console.txt",
+                         "handoff/template-v2/captures/P2-dryrun.txt",
+                         "handoff/template-v2/captures/P2-tests.md"
+                     ],
+    "outOfScope":  [
+
+                   ],
+    "evidence":  [
+                     "handoff/template-v2/captures/P2-console.txt",
+                     "handoff/template-v2/captures/P2-tests.md",
+                     "handoff/template-v2/captures/P2-dryrun.txt"
+                 ],
+    "summary":  "[1] console-clear: OK | [2] refresh: OK (compile=True) | [3] console: OK (0 dong) | [4] tests: OK 7/7 (0.3913644 s) | [5] console-clear: OK | [6] menu: OK \u0027Tools/Visual Direction/Dry Run (log drift)\u0027 | [7] console: OK (1 dong)",
+    "log":  "handoff/template-v2/runs/P2-VISUAL-VERIFY/20260930-144105/r0.verify.md",
+    "usage":  {
+                  "model":  "script",
+                  "tokens":  0,
+                  "costUsd":  0,
+                  "durationMs":  27681
+              }
+}

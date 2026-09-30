@@ -1,0 +1,4 @@
+types=error filter=[VisualDirection]
+count=1
+
+[VisualDirection] DRY RUN v0 - 0 chenh lech (drift), 0 khop, 1 loi
