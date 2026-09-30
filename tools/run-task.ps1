@@ -59,6 +59,8 @@ param(
     # tools/run-batch.ps1: glob (ngan cach ';') cua task khac chay cung luc tren cung working tree.
     # File khop cac glob nay ma KHONG khop writeSet cua task nay = thay doi cua task kia, khong tinh vao task nay.
     [string]$ExternalWriteSet,
+    # Lock tai nguyen doc quyen tren MAY (unity, blender): cho toi da bao nhieu phut neu task khac dang giu.
+    [int]$LockWaitMin = 30,
     [string]$Implementer = '',
     [int]$CapabilityMaxAgeMinutes = 480,
     [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write',
@@ -203,7 +205,50 @@ function Save-EditorLogTail {
     }
 }
 
+# ---------------------------------------------------------------- resource lock (V2)
+# Unity MCP (cong 8080) va Blender la tai nguyen cua MAY, khong cua repo: hai run o hai project van tranh nhau
+# (bai hoc 2026-09-30: verify Demo chay tren Unity cua Template). Lock file trong TEMP cua user; PID chet = lock bo roi.
+$HeldLocks = New-Object System.Collections.Generic.List[string]
+function Get-LockDir {
+    $base = if ($env:TEMP) { $env:TEMP } elseif ($env:TMPDIR) { $env:TMPDIR } else { '/tmp' }
+    $d = Join-Path $base 'agentpack-locks'
+    if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    return $d
+}
+function Test-PidAlive([int]$ProcessId) { try { return [bool](Get-Process -Id $ProcessId -ErrorAction Stop) } catch { return $false } }
+function Lock-Resource([string]$Name) {
+    $path = Join-Path (Get-LockDir) "$Name.lock"
+    $deadline = (Get-Date).AddMinutes($LockWaitMin)
+    $said = $false
+    while ($true) {
+        try {
+            $fs = [System.IO.File]::Open($path, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+            $info = [System.Text.Encoding]::UTF8.GetBytes((@{ pid = $PID; task = $TaskObj.id; root = $ProjectRoot; at = (Get-Date).ToString('s') } | ConvertTo-Json -Compress))
+            $fs.Write($info, 0, $info.Length); $fs.Close()
+            $HeldLocks.Add($path)
+            return $null
+        } catch [System.IO.IOException] {
+            $holder = $null
+            try { $holder = [System.IO.File]::ReadAllText($path) | ConvertFrom-Json } catch { }
+            if ($holder -and $holder.pid -and -not (Test-PidAlive ([int]$holder.pid))) {
+                Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue   # process giu lock da chet
+                continue
+            }
+            if ($holder -and [int]$holder.pid -eq $PID) { return $null }
+            $who = if ($holder) { "$($holder.task) ($($holder.root), pid $($holder.pid), tu $($holder.at))" } else { 'khong ro' }
+            if ((Get-Date) -ge $deadline) { return "$Name dang duoc giu boi $who qua $LockWaitMin phut" }
+            if (-not $said) { Write-Host "[$($TaskObj.id)] cho ${Name}: dang duoc giu boi $who ..."; $said = $true }
+            Start-Sleep -Seconds 10
+        }
+    }
+}
+function Unlock-Resources {
+    foreach ($p in $HeldLocks) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
+    $HeldLocks.Clear()
+}
+
 function Complete-Run([string]$Status, [string]$Reason, [int]$Rounds) {
+    Unlock-Resources
     Save-EditorLogTail
     Write-Json (Join-Path $RunDir 'status.json') ([ordered]@{
             schema = 'run-status/v1'; taskId = $TaskObj.id; status = $Status; reason = $Reason
@@ -466,6 +511,12 @@ if (-not $Plan -and -not $VerifyOnly -and -not (Test-HostLevels 'claude' @('INST
     Complete-Run 'BLOCKED_TOOLCHAIN' 'reviewer claude chua PASS REVIEWER_READONLY' 0
 }
 $ImplExe = $Cap.hosts.$ImplHost.exe
+
+# Tai nguyen doc quyen cua task (cung luat voi run-batch): unity / blender.
+$LockNames = New-Object System.Collections.Generic.List[string]
+$stepKinds = @($TaskObj.verify.steps | Where-Object { $_ } | ForEach-Object { [string]$_.do })
+if (@($TaskObj.resources) -contains 'unity' -or @($stepKinds | Where-Object { @('blender', 'files') -notcontains $_ }).Count -or @($TaskObj.requires | Where-Object { $_ -like 'UNITY_*' }).Count) { $LockNames.Add('unity') }
+if (@($TaskObj.resources) -contains 'blender' -or $stepKinds -contains 'blender' -or @($TaskObj.requires | Where-Object { $_ -like 'BLENDER_*' }).Count) { $LockNames.Add('blender') }
 $ImplMcp = $Cap.hosts.$ImplHost.unityMcpServer
 $ReviewerExe = $Cap.hosts.claude.exe
 
@@ -636,6 +687,15 @@ if ($Plan -or $needConfirm) {
         exit 0
     }
 }
+
+foreach ($ln in $LockNames) {
+    $busy = Lock-Resource $ln
+    if ($busy) {
+        Add-Intervention 'BLOCKED_RESOURCE' $busy
+        Complete-Run 'BLOCKED_RESOURCE' $busy 0
+    }
+}
+if ($LockNames.Count) { Write-Host "[$($TaskObj.id)] giu lock: $($LockNames -join ', ') (may nay)" }
 
 $BaseCommit = (Invoke-Git @('rev-parse', 'HEAD')).Trim()
 $Snapshot = Get-TreeSnapshot

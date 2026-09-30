@@ -161,6 +161,7 @@ Usage lấy từ output thật: Claude `--output-format json` (token, `total_cos
 | `BLOCKED_ON_TARGET` | reviewer `TARGET_RECONSIDER` **có** `implHypothesesRuledOut` | PO + director |
 | `BLOCKED` | implementer/reviewer chặn, ghi ngoài writeSet, JSON review hỏng, hoặc TARGET_RECONSIDER thiếu evidence | đọc `status.json` |
 | `BLOCKED_TOOLCHAIN` | không host nào đủ `requires` | doctor in bước sửa |
+| `BLOCKED_RESOURCE` | Unity / Blender của **máy** đang bị task khác giữ quá `-LockWaitMin` (mặc định 30 phút); lý do ghi task + project + PID đang giữ | chờ task kia, hoặc tắt nó |
 | `BLOCKED_QUOTA` | host hết quota/rate limit (vd ChatGPT "usage limit … try again at …"); reviewer không được gọi | chờ tới giờ ghi trong lý do rồi chạy lại, hoặc `-Implementer claude` |
 
 Mọi lần cần người ⇒ một dòng trong `handoff/<wp>/interventions.jsonl`. Đó là KPI:
@@ -206,6 +207,7 @@ Output: `handoff/_batch/<stamp>/<id>.out.txt` + `batch.json`.
 (`ghi ngoai writeSet`), không lọt vào tree chính. Xong ⇒ runner commit trong branch (PASS: code + evidence; BLOCKED: chỉ evidence),
 batch **cherry-pick** về branch hiện tại khi không còn task nào chạy trên tree chính, rồi xoá worktree + branch
 (`-KeepWorktrees` để giữ). Task phụ thuộc chỉ bắt đầu sau khi dependency đã cherry-pick. Cherry-pick xung đột ⇒ `FAILED`, giữ branch.
+**Lock của máy (V2):** runner giữ lock `unity` / `blender` trong thư mục TEMP của user (`agentpack-locks/`) suốt run — hai lệnh ở hai project khác nhau cũng không giành cổng MCP 8080 được nữa. Process giữ lock đã chết ⇒ lock tự được lấy lại.
 Task dùng Unity vẫn chạy trên tree chính (Editor mở project ở đó) với `-ExternalWriteSet` như V1. `-NoIsolate` ⇒ mọi task như V1.
 File gitignored runner cần (`.toolchain/`, `config/run-profiles.local.json`) được chép sang worktree.
 
