@@ -78,12 +78,14 @@ runner gọi **thẳng Unity MCP qua HTTP** (`tools/UnityMcp.psm1`, URL lấy t�
     { "do": "tests", "mode": "EditMode", "out": "handoff/<wp>/captures/tests.md" },
     { "do": "console-clear" },
     { "do": "menu", "path": "Game/Tool/Menu Item" },
-    { "do": "console", "types": ["log", "warning"], "filter": "CSV:", "expect": "\\(fail 0\\)", "out": "handoff/<wp>/captures/parity.txt" },
+    { "do": "console", "types": ["log"], "filter": "CSV:", "minCount": 1, "out": "handoff/<wp>/captures/parity.txt" },
+    { "do": "console", "types": ["warning", "error"], "filter": "CSV:", "maxCount": 0, "out": "handoff/<wp>/captures/parity-fail.txt" },
     { "do": "files", "exist": ["handoff/<wp>/captures/a.csv"] }
   ]
 }
 ```
 
+- Kết luận PASS/FAIL nên dựa vào **log level** (tool log `Debug.Log` khi pass, `LogWarning` khi fail) và `minCount`/`maxCount`, không dựa vào text: `read_console` chỉ trả **dòng đầu** của log nhiều dòng. `expect` (regex) vẫn dùng được cho log một dòng; không khớp thì thử lại trên JSON thô.
 - Tất cả bước PASS ⇒ `DONE_PENDING_FEEL` ngay, **không implementer, không reviewer** (acceptance là số đo được).
 - Có bước FAIL ⇒ `onFail: implementer` (mặc định): giao implementer với báo cáo `r0.verify.md`; `stop` ⇒ `BLOCKED`.
 - Unity không trả lời khi đang compile/chạy test ⇒ mỗi lệnh tự thử lại (tới 10–15 phút); test job poll tới khi xong.
@@ -184,3 +186,4 @@ Nhiều task được ở `EXECUTABLE` cùng lúc (`handoff/ROADMAP.md`). Chạy
 | Runner tưởng implementer đã xong khi nó hết quota giữa chừng | không có tin nhắn cuối → runner đọc log thô, trong đó có dòng `RESULT:` của prompt mẫu | chỉ tin tin nhắn cuối (`-o`); chặn dòng mẫu; trạng thái `BLOCKED_QUOTA` |
 | Codex mất shell (`Access is denied`) | sandbox Windows không spawn được `pwsh` bản Microsoft Store | doctor WARN `SANDBOX_SHELL`: cài PowerShell 7 bản MSI hoặc `-CodexSandbox danger-full-access` |
 | Script verify lần đầu trên Unity thật: `run_tests` "không trả job_id", console "0 dòng" | FastMCP bọc kết quả trong `{"result": {...}}`, còn server giả trả thẳng | module bóc `result`; đọc console mà sai định dạng thì báo lỗi, không coi là 0 dòng (nếu coi là 0 dòng thì `maxCount 0` sẽ PASS giả) |
+| Script verify: parity "không khớp `(fail 0)`" dù parity 38/38 PASS | `read_console` chỉ trả dòng đầu (`[MotionParity]`) của log nhiều dòng | kiểm bằng log level: `log` có ≥1 dòng (`minCount`), `warning/error` có 0 dòng |

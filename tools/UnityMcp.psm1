@@ -118,8 +118,16 @@ function Get-ConsoleEntries($Payload) {
         foreach ($k in @('lines', 'items', 'entries', 'messages')) { if ($data.PSObject.Properties[$k]) { $list = @($data.$k); $found = $true; break } }
         if (-not $found) { throw "read_console: khong tim thay danh sach log trong data: $($data | ConvertTo-Json -Compress -Depth 6)" }
     }
+    # Log nhieu dong: MCP for Unity chi dat dong dau vao 'message', phan con lai nam o stack trace
+    # (thay tren Unity that: '[MotionParity]' mat dong '=> 38/38 (fail 0)'). Ghep lai de 'expect' khop ca log.
     return @($list | ForEach-Object {
-            if ($_ -is [string]) { $_ } elseif ($_.message) { [string]$_.message } elseif ($_.text) { [string]$_.text } else { ($_ | ConvertTo-Json -Compress) }
+            if ($_ -is [string]) { $_ }
+            elseif ($_.message -or $_.text) {
+                $parts = @([string]$(if ($_.message) { $_.message } else { $_.text }))
+                foreach ($k in @('stackTrace', 'stacktrace', 'stack_trace', 'details')) { if ($_.PSObject.Properties[$k] -and $_.$k) { $parts += [string]$_.$k } }
+                $parts -join "`n"
+            }
+            else { ($_ | ConvertTo-Json -Compress) }
         })
 }
 
@@ -166,12 +174,19 @@ function Invoke-VerifySteps {
                     [string[]]$types = @(if ($s.types) { @($s.types) } else { 'error' })
                     $a = @{ action = 'get'; types = [object[]]$types; count = 200; format = 'json' }
                     if ($s.filter) { $a['filter_text'] = [string]$s.filter }
-                    $entries = Get-ConsoleEntries (Invoke-UnityTool -Name 'read_console' -Arguments $a)
+                    $payload = Invoke-UnityTool -Name 'read_console' -Arguments $a
+                    $entries = Get-ConsoleEntries $payload
                     $text = ($entries -join "`n")
                     $ok = $true
                     $why = @()
                     if ($null -ne $s.maxCount -and $entries.Count -gt [int]$s.maxCount) { $ok = $false; $why += "$($entries.Count) dong > toi da $($s.maxCount)" }
-                    if ($s.expect -and $text -notmatch [string]$s.expect) { $ok = $false; $why += "khong khop '$($s.expect)'" }
+                    if ($null -ne $s.minCount -and $entries.Count -lt [int]$s.minCount) { $ok = $false; $why += "$($entries.Count) dong < toi thieu $($s.minCount)" }
+                    if ($s.expect -and $text -notmatch [string]$s.expect) {
+                        # Truong ten khac / log bi tach: thu khop tren JSON tho, va ghi JSON tho vao file de soi.
+                        $raw = $payload | ConvertTo-Json -Compress -Depth 8
+                        $text += "`n`n--- raw read_console ---`n" + $raw
+                        if ($raw -notmatch [string]$s.expect) { $ok = $false; $why += "khong khop '$($s.expect)'" }
+                    }
                     Write-VerifyFile $Root $s.out ("types=" + ($types -join ',') + $(if ($s.filter) { " filter=$($s.filter)" } else { '' }) + "`ncount=$($entries.Count)`n`n" + $text + "`n")
                     if ($ok) { $lines.Add("${label}: OK ($($entries.Count) dong)") } else { $fails.Add("${label}: " + ($why -join '; ')); $lines.Add("${label}: FAIL " + ($why -join '; ')) }
                 }
