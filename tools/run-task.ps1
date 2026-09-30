@@ -21,7 +21,7 @@
 
   Output: handoff/<wp>/runs/<id>/<timestamp>/  (prompt, *.out.txt, diff, rN.result.json, rN.review.json,
           status.json, unity-editor-log-tail.txt). Khong dung duoi .log: .gitignore cua Unity bo qua *.log.
-  Runner khong commit, khong push.
+  Runner khong push. Chi commit khi co -Commit va task PASS; neu khong, in lenh git add gom ca code lan evidence.
 
 .EXAMPLE
   .\tools\doctor.ps1
@@ -33,7 +33,9 @@ param(
     [int]$MaxPatchRounds = 2,
     [string]$Implementer = '',
     [int]$CapabilityMaxAgeMinutes = 480,
-    [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write'
+    [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write',
+    # Commit changedFiles + run dir khi task PASS. Mac dinh tat: runner chi in lenh git de nguoi chay tu commit.
+    [switch]$Commit
 )
 
 $ErrorActionPreference = 'Stop'
@@ -174,6 +176,27 @@ function Complete-Run([string]$Status, [string]$Reason, [int]$Rounds) {
     Write-Host ''
     Write-Host "[$($TaskObj.id)] $Status $(if ($Reason) { "- $Reason" })"
     Write-Host "run dir: $(Get-RelPath $RunDir)"
+    # Bai hoc pilot run 3: code task sua ma chi add evidence thi doi may la mat.
+    $paths = @(@($LastChanged) + @((Get-RelPath $RunDir), (Get-RelPath $InterventionsPath)) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Sort-Object -Unique)
+    if ($Status -eq 'DONE_PENDING_FEEL' -and $Commit) {
+        $null = Invoke-Git (@('add', '--') + $paths)
+        $null = Invoke-Git @('commit', '-m', "$($TaskObj.id): $Status ($(Get-RelPath $RunDir))")
+        Write-Host "committed: $((Invoke-Git @('rev-parse', '--short', 'HEAD')).Trim()) ($($paths.Count) path)"
+    } else {
+        if ($Status -ne 'DONE_PENDING_FEEL' -and @($LastChanged | Where-Object { -not $_.StartsWith('handoff/') }).Count) {
+            Write-Host 'Chu y: task chua PASS; code da doi van nam tren working tree (chua review xong):'
+            @($LastChanged | Where-Object { -not $_.StartsWith('handoff/') }) | ForEach-Object { Write-Host "  $_" }
+        }
+        if ($Status -ne 'DONE_PENDING_FEEL') {
+            # Chua PASS: chi commit evidence; code chua review khong duoc de xuat commit.
+            $paths = @($paths | Where-Object { $_.StartsWith('handoff/') })
+            Write-Host 'Commit (chi evidence):'
+        } else {
+            Write-Host 'Commit (code + evidence):'
+        }
+        Write-Host ("  git add -- " + (($paths | ForEach-Object { '"' + $_ + '"' }) -join ' '))
+        Write-Host ("  git commit -m `"$($TaskObj.id): $Status`"")
+    }
     $code = 1
     if ($Status -eq 'DONE_PENDING_FEEL') { $code = 0 }
     exit $code
@@ -201,6 +224,8 @@ New-Item -ItemType Directory -Path $RunDir -Force | Out-Null
 $InterventionsPath = Join-Path $WpDir 'interventions.jsonl'
 $RunsRel = (Get-RelPath (Join-Path $WpDir 'runs')) + '/'
 $ImplHost = $null
+# File task da doi o round cuoi; Complete-Run dung de commit/in lenh commit.
+$LastChanged = @()
 
 $capPath = Join-Path $ProjectRoot '.toolchain/capabilities.json'
 if (-not (Test-Path $capPath)) {
@@ -389,6 +414,7 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     if ($msg -match '(?m)^\s*SUMMARY:\s*(.*)$') { $summary = $Matches[1].Trim() }
 
     $changed = Get-ChangedSince $Snapshot $Ignore
+    $script:LastChanged = @($changed)
     $outOfScope = @($changed | Where-Object { -not (Test-InWriteSet $_ @($TaskObj.writeSet)) })
     $tracked = @($changed | Where-Object { (Invoke-Native 'git' @('ls-files', '--error-unmatch', '--', $_) $null).Code -eq 0 })
     $diffText = if ($tracked.Count) { Invoke-Git (@('diff', '--stat', '--patch', '--') + $tracked) } else { '' }
