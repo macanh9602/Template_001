@@ -1,0 +1,9 @@
+{
+  "_note": "Copy thanh Docs/asset-pipeline.json (gitignored, machine-local) roi dien path cua may; hoac chay 'python bin/setup.py --project-root <Unity project root>' cua pipeline de tu dien. Khong commit path tuyet doi.",
+  "pipeline_root": "",
+  "blender": "",
+  "models_dir": "Assets/_Core/2_Models",
+  "runs_dir": "",
+  "command": "\"{blender}\" -b -P \"{pipeline_root}/pipeline/run.py\" -- --brief {brief} --mesh {mesh} --project-root \"{project_root}\"",
+  "project_root": ""
+}

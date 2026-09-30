@@ -1,5 +1,28 @@
 # Pack version
 
+## v5.0 (branch `claude/new-session-7wx9q1`, chưa release) — 2026-09-30
+
+**Execution core: PO không còn là message broker** — review `claude_workflow_review_pack_v3` + pilot thật trên
+`Ducan_SpeedRun_Demo` WP004 (2 máy, 5 run).
+
+- `tools/doctor.ps1`: capability theo **máy và từng agent host** (`INSTALLED → AUTHENTICATED → UNITY_MCP_CONFIGURED →
+  UNITY_MCP_SMOKE_PASS`, `REVIEWER_READONLY`), gọi Unity MCP headless thật. `-Repair` cài Claude/Codex CLI, đăng ký
+  Unity MCP cho Claude từ entry của Codex. Output `.toolchain/capabilities.json` (gitignored).
+- `tools/run-task.ps1`: một task end-to-end — implementer headless → `changedFiles` từ git → reviewer read-only
+  (invocation riêng) → PATCH tối đa 2 vòng → `DONE_PENDING_FEEL` / `ESCALATE:LOOP_CAP` / `BLOCKED*`. Mọi lần cần người
+  ghi `handoff/<wp>/interventions.jsonl`. `-Commit` commit code + evidence khi PASS.
+- `templates/schemas/{task,result,review}.schema.json`; `task.json` là header máy đọc của `worker-packet.md`.
+  `baselineRef` bắt buộc cho mọi claim "failure có sẵn".
+- `tools/template-lint.ps1` + dọn Template: path `_Core/Scripts/Diagnostics` cũ, 2 `.cs` 0 byte, 15 folder chỉ còn
+  `.meta` (thêm `.gitkeep`), `Docs/asset-pipeline.json` → `.example.json` + gitignore (bỏ path `D:/…`, `models_dir` →
+  `_Core/2_Models`), pin `com.coplaydev.unity-mcp#v10.0.0`.
+- `handoff/ROADMAP.md`: nhiều task được `EXECUTABLE`; chạy đồng thời chỉ khi dependency DONE, writeSet rời nhau,
+  tối đa một task cần Unity.
+- Chưa có (V2): DAG scheduler, worktree/lock, harvest `visual-lab`/`visual-review`/importer/capture runner từ Demo,
+  reuse registry, board generated. Xem `workflow/run-task.md §7` cho bài học pilot.
+
+---
+
 ## v4.6 — 2026-09-28
 
 **Art placeholder từ GD HTML — `skills/art-gen/`**

@@ -4,6 +4,9 @@ Status: `EXECUTABLE`
 Big Phase: `[phase]`
 Worker profile: lower-reasoning / implementation-focused
 
+Header máy đọc: `[ID].json` cùng thư mục (schema `templates/schemas/task.schema.json`) — writeSet, requires,
+acceptance, targetRef, baselineRef. Chạy bằng `tools/run-task.ps1` (xem `workflow/run-task.md`).
+
 > Packet này không chứa open product decision.
 > Frontier/planning layer phải resolve semantics/architecture/data blocker trước khi packet thành EXECUTABLE.
 
@@ -75,6 +78,9 @@ Worker sở hữu **HOW** trong allowed scope:
 | | | Không biến pre-existing fail thành story fail; cũng không gọi full suite PASS |
 
 ## 10. Exit
+
+Chạy qua runner: dòng cuối message phải là `RESULT: IMPLEMENTED` hoặc `RESULT: BLOCKED: <lý do>`,
+kèm `EVIDENCE: <path;path>` và `SUMMARY: <một dòng>`.
 
 Worker chỉ report một trong:
 

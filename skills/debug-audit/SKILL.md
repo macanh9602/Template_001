@@ -59,7 +59,7 @@ compile/source-check
 Không dừng ở việc đưa snippet để dev tự chèn. Không bắt dev copy/paste console log.
 
 Nếu project đã có reusable `AgentDebugAudit`, dùng nó. Nếu chưa có, tạo một helper generic nhỏ ở
-`Assets/_Core/Scripts/Diagnostics/AgentDebugAudit.cs`; helper sống lại qua bug sau, hook cụ thể thì có
+`Assets/_Core/4_Scripts/Diagnostics/AgentDebugAudit.cs`; helper sống lại qua bug sau, hook cụ thể thì có
 thể tháo sau khi fix.
 
 ---

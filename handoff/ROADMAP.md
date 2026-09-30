@@ -27,7 +27,9 @@ SUPERSEDED = historical, never executable
 ```
 
 `IMPLEMENTED` nghĩa là code/scope đã tồn tại. `DONE` chỉ khi required closure evidence/gate PASS.
-Tại một thời điểm chỉ có **một executable worker packet/story** trừ khi roadmap ghi rõ các packet độc lập không chạm ownership/file.
+Nhiều task/packet được phép cùng ở trạng thái `EXECUTABLE`. **Chạy đồng thời** chỉ khi đồng thời thoả:
+dependency đã DONE · `writeSet` rời nhau · tối đa **một** task cần Unity (V1: một Unity lane). Không thoả ⇒ xếp hàng.
+Task chạy qua `tools/run-task.ps1` (xem `workflow/run-task.md`).
 
 - Phase/capability phía trước có thể ghi ngắn ở roadmap.
 - **Chỉ story gần nhất sau gate hiện tại được materialize thành execution spec đầy đủ.**

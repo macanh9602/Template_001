@@ -21,7 +21,7 @@ Output la **mot `intake-report.json` + render**, khong phai mot cau "da xong".
 `Docs/project-context.md` (lay `[GameRoot]`, prefix ten) ·
 `standards/folder-structure.md §2, §5` (asset di vao dau, dat ten the nao) ·
 `standards/performance-budget.md §1` (tri/draw call budget) ·
-`Docs/asset-pipeline.json` (config do setup sinh ra: duong dan pipeline, Blender, defaults).
+`Docs/asset-pipeline.json` (machine-local, gitignored; tao tu `Docs/asset-pipeline.example.json` hoac do `bin/setup.py` sinh: duong dan pipeline, Blender, defaults).
 
 Khong hoi lai thu cac file do da tra loi.
 
@@ -105,7 +105,7 @@ logic o root, visual o child `View/`. Placeholder cung la prefab that, khong `Cr
 - Khong sinh mesh trong skill nay.
 - Khong sua file goc cua artist — moi output la file moi.
 - Khong ghi de file da co trong `Assets/` ma khong bao trong report.
-- Khong tu them check moi vao code. Them check = sua `docs/data-model.md` truoc.
+- Khong tu them check moi vao code. Them check = sua `Docs/data-model.md` truoc.
 - Khong tu noi rong `constraints` khi mesh khong dat. Do la quyet dinh cua dev.
 
 ---

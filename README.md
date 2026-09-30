@@ -100,6 +100,12 @@ workflow/
   decisions.md
   verification.md
   harvest.md
+  run-task.md          doctor + runner + task/result/review
+
+tools/
+  doctor.ps1           capability máy + từng agent host (Unity MCP headless thật)
+  run-task.ps1         task.json → implementer → git diff → reviewer read-only → PATCH/PASS
+  template-lint.ps1    chặn root song song, meta mồ côi, path máy, BOM, ref gãy, package trôi
 
 Docs/
   project-context.md
@@ -177,6 +183,13 @@ Không viết sẵn 10–15 story chi tiết khi architecture/foundation chưa v
 8. **Prototype authority theo area.** Gameplay/data/oracle/reference tách riêng; không copy nguyên prototype thành Unity contract.
 9. **Authoring owner là project decision.** External tool/Unity Editor/generator đều first-class; runtime chỉ đọc canonical data.
 10. **Reasoning ở frontier, mechanics ở script, execution ở worker.** Generated updater transient; manifest/conformance/Docs persistent.
+
+---
+
+## Chạy task không cần PO làm trung gian
+
+Máy mới: `tools/doctor.ps1 -Repair`. Task: `tools/run-task.ps1 -Task handoff/<wp>/tasks/<id>.json -Commit`.
+Trước khi publish/merge pack: `tools/template-lint.ps1`. Chi tiết: `workflow/run-task.md`.
 
 ---
 
