@@ -56,6 +56,9 @@ param(
     [switch]$NoResume,
     # Chi chay buoc 'verify' bang script; fail thi dung (BLOCKED), khong bao gio goi AI.
     [switch]$VerifyOnly,
+    # tools/run-batch.ps1: glob (ngan cach ';') cua task khac chay cung luc tren cung working tree.
+    # File khop cac glob nay ma KHONG khop writeSet cua task nay = thay doi cua task kia, khong tinh vao task nay.
+    [string]$ExternalWriteSet,
     [string]$Implementer = '',
     [int]$CapabilityMaxAgeMinutes = 480,
     [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write',
@@ -170,6 +173,12 @@ function Get-ChangedSince($Before, [string[]]$IgnorePrefixes) {
         $p = $_; -not ($IgnorePrefixes | Where-Object { $p.StartsWith($_) })
     } | Sort-Object -Unique
     return @($filtered)
+}
+
+$ExternalGlobs = @(if ($ExternalWriteSet) { $ExternalWriteSet -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ } })
+function Remove-ExternalChanges([string[]]$Changed) {
+    if (-not $ExternalGlobs.Count) { return @($Changed) }
+    return @($Changed | Where-Object { (Test-InWriteSet $_ @($TaskObj.writeSet)) -or -not (Test-InWriteSet $_ $ExternalGlobs) })
 }
 
 function Add-Intervention([string]$State, [string]$Reason) {
@@ -851,7 +860,7 @@ if ($TaskObj.verify -and $TaskObj.verify.steps) {
     }
     $vUsage = [ordered]@{ model = 'script'; tokens = 0; costUsd = 0; durationMs = $vsw.ElapsedMilliseconds }
     Write-Text "$vp.verify.md" ("# Script verify ($($TaskObj.id))`n`n" + ((@($vr.Lines) | ForEach-Object { "- $_" }) -join "`n") + "`n")
-    $changed = Get-ChangedSince $Snapshot $Ignore
+    $changed = Remove-ExternalChanges (Get-ChangedSince $Snapshot $Ignore)
     $script:LastChanged = @($changed)
     $outOfScope = @($changed | Where-Object { -not (Test-InWriteSet $_ @($TaskObj.writeSet)) })
     $evidence = @(@($TaskObj.verify.steps) | Where-Object { $_.out } | ForEach-Object { [string]$_.out })
@@ -921,7 +930,7 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     $summary = ''
     if ($msg -match '(?m)^\s*SUMMARY:\s*(.*)$') { $summary = $Matches[1].Trim() }
 
-    $changed = Get-ChangedSince $Snapshot $Ignore
+    $changed = Remove-ExternalChanges (Get-ChangedSince $Snapshot $Ignore)
     $script:LastChanged = @($changed)
     $outOfScope = @($changed | Where-Object { -not (Test-InWriteSet $_ @($TaskObj.writeSet)) })
     $tracked = @($changed | Where-Object { (Invoke-Native 'git' @('ls-files', '--error-unmatch', '--', $_) $null).Code -eq 0 })

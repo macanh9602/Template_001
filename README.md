@@ -108,6 +108,7 @@ tools/
   run-task.ps1         task.json → implementer → git diff → reviewer read-only → PATCH/PASS
   template-lint.ps1    chặn root song song, meta mồ côi, path máy, BOM, ref gãy, package trôi
   run-dashboard.html   trang duyệt kế hoạch + tiến độ agent (runner tự điền dữ liệu)
+  run-batch.ps1        nhiều task song song có giới hạn: dependsOn, writeSet rời nhau, ≤ 1 luồng Unity
   run-report.ps1       tổng hợp mọi run: token, tiền, thời gian, trạng thái + tín hiệu harvest → handoff/_reports/run-report.html
   promote-direction.ps1  PO promote visual direction theo section (look / motion / fx)
   new-game.ps1         mở game mới từ Template: tên, code, namespace, bundle id, dọn phần riêng của Template

@@ -176,7 +176,27 @@ Mọi lần cần người ⇒ một dòng trong `handoff/<wp>/interventions.jso
 ## 6. Parallel
 
 Nhiều task được ở `EXECUTABLE` cùng lúc (`handoff/ROADMAP.md`). Chạy đồng thời chỉ khi dependency DONE,
-`writeSet` rời nhau và tối đa một task cần Unity. V1 runner chạy từng task; song song là việc của V2.
+`writeSet` rời nhau và tối đa một task cần Unity. `tools/run-batch.ps1` áp đúng luật đó:
+
+```powershell
+.\tools\run-batch.ps1 -Wp wp-005 -Plan                 # xem lịch: task nào không được chạy cùng nhau, vì sao
+.\tools\run-batch.ps1 -Wp wp-005 -MaxParallel 2 -Commit # chạy; commit từng task PASS sau khi cả batch xong
+.\tools\run-batch.ps1 -Tasks a.json,b.json -VerifyOnly  # chỉ script verify, 0 token
+```
+
+| Luật | Cách batch kiểm |
+|---|---|
+| `dependsOn` | task chờ dependency DONE (trong batch hoặc run gần nhất `DONE_PENDING_FEEL`); dependency fail ⇒ task (và task phụ thuộc nó) `SKIPPED` |
+| `writeSet` rời nhau | hai glob giao nhau nếu tiền tố cố định (trước `*`) của cái này là tiền tố của cái kia — thận trọng: nghi ngờ là không chạy cùng |
+| ≤ 1 luồng Unity | task có `resources: ["unity"]`, `requires UNITY_*` hoặc khối `verify` ⇒ độc quyền `unity` |
+| ≤ `-MaxParallel` | mặc định 2 |
+
+Cùng working tree: mỗi runner nhận `-ExternalWriteSet` = writeSet của task khác (+ `runs/`, `interventions.jsonl`),
+nên file của task kia không bị tính là "ghi ngoài writeSet". Không commit giữa chừng (tránh `index.lock`).
+Output: `handoff/_batch/<stamp>/<id>.out.txt` + `batch.json`.
+
+**Giới hạn V1:** task ghi **ra ngoài** writeSet của mình vào vùng writeSet của task khác thì runner không bắt được
+(file bị coi là của task kia). Cách chặn thật = worktree riêng mỗi task (V2).
 
 ## 7. Bài học đã trả giá (pilot WP004, 2026-09-29/30)
 
