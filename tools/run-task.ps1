@@ -54,6 +54,8 @@ param(
     [switch]$NoOpen,
     # Vong sua (PATCH) mo phien implementer moi thay vi tiep tuc phien vong truoc.
     [switch]$NoResume,
+    # Chi chay buoc 'verify' bang script; fail thi dung (BLOCKED), khong bao gio goi AI.
+    [switch]$VerifyOnly,
     [string]$Implementer = '',
     [int]$CapabilityMaxAgeMinutes = 480,
     [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write',
@@ -848,12 +850,16 @@ if ($TaskObj.verify -and $TaskObj.verify.steps) {
         # Acceptance la so do duoc (compile/test/parity): khong can reviewer AI.
         Complete-Run 'DONE_PENDING_FEEL' "script verify PASS, 0 token ($(@($vr.Lines).Count) buoc)" 0
     }
-    if ([string]$TaskObj.verify.onFail -eq 'stop' -or $outOfScope.Count) {
+    if ($VerifyOnly -or [string]$TaskObj.verify.onFail -eq 'stop' -or $outOfScope.Count) {
         Add-Intervention 'BLOCKED' "script verify: $vBlocker"
         Complete-Run 'BLOCKED' "script verify: $vBlocker" 0
     }
     $ScriptVerifyReport = "$vp.verify.md"
     Write-Host "[$($TaskObj.id)] script verify FAIL -> giao implementer ($ImplHost)"
+}
+
+if ($VerifyOnly) {
+    Complete-Run 'BLOCKED' 'task khong co khoi verify; -VerifyOnly khong goi AI' 0
 }
 
 $prevReview = $null
