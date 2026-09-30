@@ -351,12 +351,24 @@ function Test-Blender {
     $exe = if ($BlenderExe) { $BlenderExe } elseif ($cfg -and $cfg.blender) { [string]$cfg.blender } else { $null }
     if (-not $exe -and -not $Blender) { return }  # module tat: project khong dung Blender
     if (-not $exe) { $exe = Find-Exe 'blender' }
+    if (-not $exe) {
+        # Cai dat mac dinh tren Windows: lay ban moi nhat trong Program Files\Blender Foundation\Blender X.Y
+        foreach ($pf in @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }) {
+            $bf = Join-Path $pf 'Blender Foundation'
+            if (-not (Test-Path $bf)) { continue }
+            $cand = @(Get-ChildItem -LiteralPath $bf -Directory -ErrorAction SilentlyContinue |
+                    Where-Object { Test-Path (Join-Path $_.FullName 'blender.exe') } |
+                    Sort-Object { try { [version](($_.Name -replace '[^\d.]', '')) } catch { [version]'0.0' } } -Descending)
+            if ($cand.Count) { $exe = Join-Path $cand[0].FullName 'blender.exe'; break }
+        }
+    }
     if (-not $exe -or -not (Test-Path $exe)) {
         Add-Check 'blender' 'BLENDER_CONFIGURED' 'FAIL' "khong thay blender ($(if ($exe) { $exe } else { 'chua khai' }))"
         $ManualSteps.Add("Blender: copy Docs/asset-pipeline.example.json -> Docs/asset-pipeline.json, dien 'blender' = duong dan blender.exe cua may (hoac doctor -BlenderExe <path>).")
         return
     }
-    Add-Check 'blender' 'BLENDER_CONFIGURED' 'PASS' $exe
+    $src = if ($BlenderExe) { '-BlenderExe' } elseif ($cfg -and $cfg.blender) { 'Docs/asset-pipeline.json' } else { 'tu do (PATH / Program Files)' }
+    Add-Check 'blender' 'BLENDER_CONFIGURED' 'PASS' "$exe ($src)"
     $ver = Invoke-Native $exe @('-b', '--factory-startup', '--python-expr', 'import bpy; print("AGENTPACK_VER", bpy.app.version_string)')
     $version = if ($ver.Text -match 'AGENTPACK_VER (\S+)') { $Matches[1] } else { $null }
     if (-not $version) {

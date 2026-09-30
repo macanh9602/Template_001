@@ -90,6 +90,11 @@ function Compare-Directions($A, $B) {
 
 # ---------------------------------------------------------------- delta
 
+if (-not $To -and -not (Test-Path -LiteralPath $Pointer)) {
+    Write-Host 'Chua co direction nao duoc promote (handoff/visual/CURRENT chua co): chua co gi de so.'
+    Write-Host 'Promote lan dau: .\tools\promote-direction.ps1 -Proposal handoff\visual\proposals\<id>.json -Sections look'
+    exit 0
+}
 $toPath = Resolve-Direction $(if ($To) { $To } else { 'CURRENT' })
 $toDoc = Read-JsonFile $toPath
 $fromPath = if ($From) { Resolve-Direction $From } elseif ($toDoc.supersedes) { Resolve-Direction ([string]$toDoc.supersedes) } else { $null }
