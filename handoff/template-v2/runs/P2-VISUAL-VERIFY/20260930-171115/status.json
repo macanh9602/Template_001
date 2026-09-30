@@ -1,0 +1,66 @@
+{
+    "schema":  "run-status/v1",
+    "taskId":  "P2-VISUAL-VERIFY",
+    "status":  "DONE_PENDING_FEEL",
+    "reason":  "script verify PASS, 0 token (8 buoc)",
+    "rounds":  0,
+    "host":  "codex",
+    "profile":  "balanced",
+    "exec":  {
+                 "profile":  "balanced",
+                 "maxPatchRounds":  2,
+                 "implementerDefault":  null,
+                 "implementer":  {
+                                     "host":  "codex",
+                                     "model":  null,
+                                     "effort":  "high",
+                                     "serviceTier":  "default",
+                                     "effective":  {
+                                                       "model":  "gpt-6-luna",
+                                                       "modelSource":  "config.toml",
+                                                       "effort":  "high",
+                                                       "effortSource":  "profile",
+                                                       "serviceTier":  "default",
+                                                       "serviceTierSource":  "profile"
+                                                   }
+                                 },
+                 "reviewer":  {
+                                  "host":  "claude",
+                                  "model":  null,
+                                  "effort":  "medium",
+                                  "effective":  {
+                                                    "model":  "sonnet",
+                                                    "modelSource":  "settings.json",
+                                                    "effort":  "medium",
+                                                    "effortSource":  "profile",
+                                                    "serviceTier":  null,
+                                                    "serviceTierSource":  "account"
+                                                }
+                              },
+                 "resumeOnPatch":  true,
+                 "budget":  {
+                                "maxTokensPerRun":  400000,
+                                "implementerMaxUsd":  null,
+                                "reviewerMaxUsd":  1.0
+                            }
+             },
+    "usage":  {
+                  "script":  {
+                                 "tokens":  0,
+                                 "costUsd":  0,
+                                 "durationMs":  28772
+                             },
+                  "implementer":  {
+
+                                  },
+                  "reviewer":  {
+
+                               },
+                  "total":  {
+                                "tokens":  0,
+                                "costUsd":  0,
+                                "durationMs":  28772
+                            }
+              },
+    "finishedAt":  "2026-09-30T17:11:53.4531450+07:00"
+}
