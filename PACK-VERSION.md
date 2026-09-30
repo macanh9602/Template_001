@@ -18,6 +18,10 @@
   `_Core/2_Models`), pin `com.coplaydev.unity-mcp#v10.0.0`.
 - `handoff/ROADMAP.md`: nhiều task được `EXECUTABLE`; chạy đồng thời chỉ khi dependency DONE, writeSet rời nhau,
   tối đa một task cần Unity.
+- **Duyệt trước khi giao + tiến độ trực quan:** `config/run-profiles.json` (balanced/economy/fast/quality: model,
+  effort, Codex service tier, số vòng sửa); `run-task.ps1 -Plan` / `-Confirm` + ghi đè từng thông số; trang
+  `plan.html` (luồng giao việc, chỉnh cấu hình, ước tính theo lịch sử, lệnh copy) và `runs/dashboard.html` tự làm mới
+  (timeline từng vòng, token, chi phí, lần can thiệp). Usage ghi vào result/review/status.
 - Chưa có (V2): DAG scheduler, worktree/lock, harvest `visual-lab`/`visual-review`/importer/capture runner từ Demo,
   reuse registry, board generated. Xem `workflow/run-task.md §7` cho bài học pilot.
 

@@ -24,13 +24,34 @@
   Runner khong push. Chi commit khi co -Commit va task PASS; neu khong, in lenh git add gom ca code lan evidence.
 
 .EXAMPLE
-  .\tools\doctor.ps1
-  .\tools\run-task.ps1 -Task handoff\wp-004\tasks\WP004-B-VERIFY.json
+  .\tools\run-task.ps1 -Task handoff\wp-004\tasks\WP004-B-VERIFY.json -Plan
+      Chi xem ke hoach (agent, model, effort, uoc tinh usage) tren trang HTML; khong chay gi.
+  .\tools\run-task.ps1 -Task handoff\wp-004\tasks\WP004-B-VERIFY.json -Profile economy -Confirm -Commit
+      Hien ke hoach, hoi y/N truoc khi giao; profile lay tu config/run-profiles.json.
+
+  Tien do: handoff/<wp>/runs/dashboard.html (tu lam moi moi 5 giay khi dang chay).
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$Task,
-    [int]$MaxPatchRounds = 2,
+    # -1 = lay tu profile (config/run-profiles.json).
+    [int]$MaxPatchRounds = -1,
+    # Profile trong config/run-profiles.json (balanced / economy / fast / quality ...).
+    [Alias('Profile')][string]$RunProfile = '',
+    [string]$ImplementerModel = '',
+    [string]$ImplementerEffort = '',
+    [string]$ReviewerModel = '',
+    [string]$ReviewerEffort = '',
+    # Codex service tier: priority = nhanh hon, ton hon. 'default' = bo ghi de.
+    [string]$CodexServiceTier = '',
+    # Chi ghi ke hoach ra plan.html roi thoat; khong goi agent nao.
+    [switch]$Plan,
+    # Hien ke hoach va hoi y/N truoc khi giao (mac dinh theo confirmBeforeDispatch trong config).
+    [switch]$Confirm,
+    # Bo qua buoc hoi du config bat confirmBeforeDispatch.
+    [switch]$Yes,
+    # Khong tu mo trang HTML.
+    [switch]$NoOpen,
     [string]$Implementer = '',
     [int]$CapabilityMaxAgeMinutes = 480,
     [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write',
@@ -173,8 +194,14 @@ function Complete-Run([string]$Status, [string]$Reason, [int]$Rounds) {
     Save-EditorLogTail
     Write-Json (Join-Path $RunDir 'status.json') ([ordered]@{
             schema = 'run-status/v1'; taskId = $TaskObj.id; status = $Status; reason = $Reason
-            rounds = $Rounds; host = $ImplHost; finishedAt = (Get-Date).ToString('o')
+            rounds = $Rounds; host = $ImplHost; profile = $(if ($Exec) { $Exec.profile } else { $null })
+            exec = $Exec; usage = $(if ($Progress) { $Progress.usage } else { $null })
+            finishedAt = (Get-Date).ToString('o')
         })
+    if ($Progress) {
+        $Progress.status = $Status; $Progress.reason = $Reason; $Progress.rounds = $Rounds
+        Save-Progress $false
+    } else { Update-Dashboard $false }
     Write-Host ''
     Write-Host "[$($TaskObj.id)] $Status $(if ($Reason) { "- $Reason" })"
     Write-Host "run dir: $(Get-RelPath $RunDir)"
@@ -211,6 +238,134 @@ function Get-JsonObjectFromText([string]$Text) {
     try { return ($Text.Substring($start, $end - $start + 1) | ConvertFrom-Json) } catch { return $null }
 }
 
+# ---------------------------------------------------------------- usage + progress + dashboard
+
+# Claude -p --output-format json: token (khong tinh cache read, re), cost, thoi gian, model.
+function Get-ClaudeUsage([string]$Text) {
+    $o = Get-JsonObjectFromText $Text
+    if (-not $o) { return $null }
+    $u = $o.usage
+    $in = [long]0
+    foreach ($k in @('input_tokens', 'cache_creation_input_tokens')) { if ($u -and $u.$k) { $in += [long]$u.$k } }
+    $out = if ($u -and $u.output_tokens) { [long]$u.output_tokens } else { [long]0 }
+    $cacheRead = if ($u -and $u.cache_read_input_tokens) { [long]$u.cache_read_input_tokens } else { [long]0 }
+    $models = $null
+    if ($o.modelUsage) { $models = (@($o.modelUsage.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') }
+    $cost = $null
+    if ($null -ne $o.total_cost_usd) { $cost = [double]$o.total_cost_usd }
+    $ms = $null
+    if ($null -ne $o.duration_ms) { $ms = [long]$o.duration_ms }
+    return [ordered]@{ model = $models; tokens = $in + $out; cacheReadTokens = $cacheRead; costUsd = $cost; durationMs = $ms }
+}
+
+# codex exec in header 'model: ...', 'reasoning effort: ...' va cuoi 'tokens used <n>'.
+function Get-CodexUsage([string]$Text, [long]$Ms) {
+    $model = $null; $effort = $null; $tier = $null; $tokens = $null
+    if ($Text -match '(?m)^model:\s*(\S+)') { $model = $Matches[1] }
+    if ($Text -match '(?m)^reasoning effort:\s*(\S+)') { $effort = $Matches[1] }
+    if ($Text -match '(?m)^service tier:\s*(\S+)') { $tier = $Matches[1] }
+    $m = [regex]::Matches($Text, '(?m)^tokens used\s*\r?\n?\s*([\d][\d,\.]*)')
+    if ($m.Count) { $tokens = [long](($m[$m.Count - 1].Groups[1].Value) -replace '[,\.]', '') }
+    return [ordered]@{ model = $model; effort = $effort; serviceTier = $tier; tokens = $tokens; costUsd = $null; durationMs = $Ms }
+}
+
+function Format-RunStamp([string]$Name) {
+    if ($Name -match '^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$') { return "$($Matches[1])-$($Matches[2])-$($Matches[3]) $($Matches[4]):$($Matches[5]):$($Matches[6])" }
+    return $Name
+}
+
+function Get-Interventions {
+    if (-not (Test-Path $InterventionsPath)) { return @() }
+    $list = @()
+    foreach ($line in [System.IO.File]::ReadAllLines($InterventionsPath)) {
+        if ($line.Trim()) { try { $list += ($line.TrimStart([char]0xFEFF) | ConvertFrom-Json) } catch { } }
+    }
+    return , $list
+}
+
+# Moi run: progress.json (runner moi) hoac status.json (run cu) -> mot dong cho dashboard.
+function Get-RunsData {
+    $list = @()
+    $runsRoot = Join-Path $WpDir 'runs'
+    if (-not (Test-Path $runsRoot)) { return , $list }
+    foreach ($taskDir in Get-ChildItem -LiteralPath $runsRoot -Directory) {
+        foreach ($r in Get-ChildItem -LiteralPath $taskDir.FullName -Directory) {
+            if ($r.Name -eq '_plan') { continue }
+            $prog = Join-Path $r.FullName 'progress.json'
+            $st = Join-Path $r.FullName 'status.json'
+            try {
+                if (Test-Path $prog) { $list += (Read-Json $prog) }
+                elseif (Test-Path $st) {
+                    $x = Read-Json $st
+                    $list += [pscustomobject][ordered]@{
+                        taskId = $x.taskId; status = $x.status; reason = $x.reason; rounds = $x.rounds; host = $x.host
+                        profile = $x.profile; exec = $x.exec; usage = $x.usage; observedModel = $null
+                        startedAt = (Format-RunStamp $r.Name); steps = @()
+                    }
+                }
+            } catch { }
+        }
+    }
+    return , $list
+}
+
+function Write-DashboardHtml([string]$OutPath, $Data, [bool]$Live) {
+    $tpl = Join-Path $PSScriptRoot 'run-dashboard.html'
+    if (-not (Test-Path $tpl)) { return }
+    $html = [System.IO.File]::ReadAllText($tpl)
+    $json = ($Data | ConvertTo-Json -Depth 12 -Compress) -replace '</', '<\/'
+    $html = $html.Replace('/*__DATA__*/null', $json)
+    if ($Live) { $html = $html.Replace('<!--__REFRESH__-->', '<meta http-equiv="refresh" content="5">') }
+    Write-Text $OutPath $html
+}
+
+function Update-Dashboard([bool]$Live) {
+    try {
+        $data = [ordered]@{
+            mode = 'dashboard'; wp = (Split-Path -Leaf $WpDir); generatedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+            live = $Live; runs = (Get-RunsData); interventions = (Get-Interventions)
+        }
+        Write-DashboardHtml $DashboardPath $data $Live
+    } catch { Write-Host "[runner] khong ghi duoc dashboard: $($_.Exception.Message)" }
+}
+
+function Open-Page([string]$Path) {
+    if ($NoOpen) { return }
+    if ($env:OS -eq 'Windows_NT') { try { Start-Process -FilePath $Path } catch { } }
+}
+
+$Progress = $null
+function Save-Progress([bool]$Live) {
+    if (-not $Progress) { return }
+    Write-Json (Join-Path $RunDir 'progress.json') $Progress
+    Update-Dashboard $Live
+}
+
+function Add-Usage($Bucket, $U) {
+    if (-not $U) { return }
+    foreach ($k in @('tokens', 'costUsd', 'durationMs')) {
+        if ($null -ne $U.$k) {
+            if ($null -eq $Bucket[$k]) { $Bucket[$k] = 0 }
+            $Bucket[$k] += $U.$k
+        }
+    }
+}
+
+function Start-Step([string]$Role, [int]$Round, [string]$HostName) {
+    $step = [ordered]@{ round = $Round; role = $Role; host = $HostName; state = 'running'; startedAt = (Get-Date).ToString('HH:mm:ss'); outcome = $null; verdict = $null; usage = $null }
+    $Progress.steps += , $step
+    Save-Progress $true
+    return $step
+}
+
+function Stop-Step($Step, [string]$Outcome, [string]$Verdict, $U) {
+    $Step.state = 'done'; $Step.outcome = $Outcome; $Step.verdict = $Verdict; $Step.usage = $U
+    Add-Usage $Progress.usage[$Step.role] $U
+    Add-Usage $Progress.usage.total $U
+    if ($Step.role -eq 'implementer' -and $U -and $U.model) { $Progress.observedModel = $U.model }
+    Save-Progress $true
+}
+
 # ---------------------------------------------------------------- load task + capabilities
 
 $TaskPath = (Resolve-Path $Task).Path
@@ -221,7 +376,10 @@ foreach ($f in @('id', 'packet', 'implementers', 'requires', 'writeSet', 'accept
 if (-not (Test-Path $TaskObj.packet)) { throw "packet khong ton tai: $($TaskObj.packet)" }
 
 $WpDir = Split-Path -Parent (Split-Path -Parent $TaskPath)
-$RunDir = Join-Path $WpDir ("runs/{0}/{1}" -f $TaskObj.id, (Get-Date).ToString('yyyyMMdd-HHmmss'))
+$RunStamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+$RunDir = Join-Path $WpDir ("runs/{0}/{1}" -f $TaskObj.id, $RunStamp)
+if ($Plan) { $RunDir = Join-Path $WpDir ("runs/{0}/_plan" -f $TaskObj.id) }
+$DashboardPath = Join-Path $WpDir 'runs/dashboard.html'
 New-Item -ItemType Directory -Path $RunDir -Force | Out-Null
 $InterventionsPath = Join-Path $WpDir 'interventions.jsonl'
 $RunsRel = (Get-RelPath (Join-Path $WpDir 'runs')) + '/'
@@ -265,12 +423,13 @@ if ($Implementer) { $candidates = @($Implementer) }
 foreach ($h in $candidates) {
     if (Test-HostLevels $h @($TaskObj.requires)) { $ImplHost = $h; break }
 }
+if (-not $ImplHost -and $Plan) { $ImplHost = $candidates[0] }
 if (-not $ImplHost) {
     $why = "khong host nao trong [$($candidates -join ', ')] PASS [$(@($TaskObj.requires) -join ', ')]"
     Add-Intervention 'BLOCKED_TOOLCHAIN' $why
     Complete-Run 'BLOCKED_TOOLCHAIN' $why 0
 }
-if (-not (Test-HostLevels 'claude' @('INSTALLED', 'REVIEWER_READONLY'))) {
+if (-not $Plan -and -not (Test-HostLevels 'claude' @('INSTALLED', 'REVIEWER_READONLY'))) {
     Add-Intervention 'BLOCKED_TOOLCHAIN' 'reviewer claude chua PASS REVIEWER_READONLY'
     Complete-Run 'BLOCKED_TOOLCHAIN' 'reviewer claude chua PASS REVIEWER_READONLY' 0
 }
@@ -278,11 +437,106 @@ $ImplExe = $Cap.hosts.$ImplHost.exe
 $ImplMcp = $Cap.hosts.$ImplHost.unityMcpServer
 $ReviewerExe = $Cap.hosts.claude.exe
 
+# ---------------------------------------------------------------- profile -> exec plan
+
+function Get-RunProfiles {
+    $pp = Join-Path $ProjectRoot 'config/run-profiles.json'
+    if (Test-Path $pp) { return (Read-Json $pp) }
+    return ('{"default":"balanced","confirmBeforeDispatch":false,"profiles":{"balanced":{"label":"balanced","maxPatchRounds":2}}}' | ConvertFrom-Json)
+}
+function Select-Value($Override, $FromProfile) { if ($Override) { return $Override } return $FromProfile }
+
+$Profiles = Get-RunProfiles
+$ProfileName = $RunProfile
+if (-not $ProfileName -and $TaskObj.profile) { $ProfileName = [string]$TaskObj.profile }
+if (-not $ProfileName) { $ProfileName = [string]$Profiles.default }
+$Prof = $Profiles.profiles.$ProfileName
+if (-not $Prof) { throw "profile '$ProfileName' khong co trong config/run-profiles.json" }
+$ip = $null; $rp = $null
+if ($Prof.implementer) { $ip = $Prof.implementer.$ImplHost }
+if ($Prof.reviewer) { $rp = $Prof.reviewer.claude }
+$tier = Select-Value $CodexServiceTier $(if ($ip) { $ip.serviceTier } else { $null })
+if ($tier -eq 'default') { $tier = $null }
+$rounds = 2
+if ($PSBoundParameters.ContainsKey('MaxPatchRounds') -and $MaxPatchRounds -ge 0) { $rounds = $MaxPatchRounds }
+elseif ($null -ne $Prof.maxPatchRounds) { $rounds = [int]$Prof.maxPatchRounds }
+$autoHost = $null
+foreach ($h in @($TaskObj.implementers)) { if (Test-HostLevels $h @($TaskObj.requires)) { $autoHost = $h; break } }
+$Exec = [ordered]@{
+    profile = $ProfileName; maxPatchRounds = $rounds; implementerDefault = $autoHost
+    implementer = [ordered]@{
+        host = $ImplHost
+        model = (Select-Value $ImplementerModel $(if ($ip) { $ip.model } else { $null }))
+        effort = (Select-Value $ImplementerEffort $(if ($ip) { $ip.effort } else { $null }))
+        serviceTier = $(if ($ImplHost -eq 'codex') { $tier } else { $null })
+    }
+    reviewer = [ordered]@{
+        host = 'claude'
+        model = (Select-Value $ReviewerModel $(if ($rp) { $rp.model } else { $null }))
+        effort = (Select-Value $ReviewerEffort $(if ($rp) { $rp.effort } else { $null }))
+    }
+}
+
+function Show-PlanConsole {
+    $i = $Exec.implementer; $r = $Exec.reviewer
+    $dash = '(mac dinh)'
+    Write-Host ''
+    Write-Host "[$($TaskObj.id)] KE HOACH  profile=$($Exec.profile)  vong sua toi da=$($Exec.maxPatchRounds)"
+    Write-Host ("  implementer : {0,-7} model={1} effort={2}{3}" -f $i.host, $(if ($i.model) { $i.model } else { $dash }), $(if ($i.effort) { $i.effort } else { $dash }), $(if ($i.host -eq 'codex') { " tier=$(if ($i.serviceTier) { $i.serviceTier } else { 'standard' })" } else { '' }))
+    Write-Host ("  reviewer    : claude  model={0} effort={1} (chi doc)" -f $(if ($r.model) { $r.model } else { $dash }), $(if ($r.effort) { $r.effort } else { $dash }))
+}
+
+function Write-PlanPage([string]$OutPath) {
+    $hosts = [ordered]@{}
+    foreach ($h in @('codex', 'claude')) {
+        $levels = @($Cap.checks | Where-Object { $_.host -eq $h -and $_.status -eq 'PASS' } | ForEach-Object { $_.level })
+        $hosts[$h] = [ordered]@{ ok = (Test-HostLevels $h @($TaskObj.requires)); levels = $levels }
+    }
+    $runs = Get-RunsData
+    $codexModels = @($runs | Where-Object { $_.observedModel -and $_.exec -and $_.exec.implementer.host -eq 'codex' } | ForEach-Object { $_.observedModel } | Sort-Object -Unique)
+    $data = [ordered]@{
+        mode = 'plan'; wp = (Split-Path -Leaf $WpDir); generatedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+        runs = $runs; interventions = (Get-Interventions)
+        plan = [ordered]@{
+            taskPath = ((Get-RelPath $TaskPath) -replace '/', '\')
+            task = [ordered]@{ id = $TaskObj.id; packet = $TaskObj.packet; acceptance = @($TaskObj.acceptance); writeSet = @($TaskObj.writeSet); requires = @($TaskObj.requires) }
+            exec = $Exec; profiles = $Profiles.profiles; hosts = $hosts; knownModels = [ordered]@{ codex = $codexModels }
+        }
+    }
+    Write-DashboardHtml $OutPath $data $false
+}
+
+$needConfirm = $Confirm -or ([bool]$Profiles.confirmBeforeDispatch -and -not $Yes)
+if ($Plan -or $needConfirm) {
+    Show-PlanConsole
+    $planPage = Join-Path $RunDir 'plan.html'
+    Write-PlanPage $planPage
+    Write-Host "  trang ke hoach: $(Get-RelPath $planPage)"
+    Open-Page $planPage
+    if ($Plan) { exit 0 }
+    $ans = Read-Host 'Giao viec voi cau hinh nay? [y/N]'
+    if ($ans -notmatch '^(y|yes|c|co)$') {
+        Remove-Item -LiteralPath $RunDir -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host 'Da huy, khong giao. Chinh cau hinh trong trang ke hoach roi chay lenh no tao ra.'
+        exit 0
+    }
+}
+
 $BaseCommit = (Invoke-Git @('rev-parse', 'HEAD')).Trim()
 $Snapshot = Get-TreeSnapshot
 $Ignore = @($RunsRel, '.toolchain/', (Get-RelPath $InterventionsPath))
 
-Write-Host "[$($TaskObj.id)] implementer=$ImplHost reviewer=claude base=$($BaseCommit.Substring(0, 8)) run=$(Get-RelPath $RunDir)"
+Write-Host "[$($TaskObj.id)] implementer=$ImplHost reviewer=claude profile=$($Exec.profile) base=$($BaseCommit.Substring(0, 8)) run=$(Get-RelPath $RunDir)"
+$Progress = [ordered]@{
+    schema = 'run-progress/v1'; taskId = $TaskObj.id; status = 'RUNNING'; reason = $null; rounds = 0
+    host = $ImplHost; profile = $Exec.profile; exec = $Exec; observedModel = $null
+    startedAt = (Format-RunStamp $RunStamp); baseCommit = $BaseCommit
+    usage = [ordered]@{ implementer = [ordered]@{}; reviewer = [ordered]@{}; total = [ordered]@{} }
+    steps = @()
+}
+Save-Progress $true
+Write-Host "[$($TaskObj.id)] tien do: $(Get-RelPath $DashboardPath)"
+Open-Page $DashboardPath
 
 # ---------------------------------------------------------------- prompts
 
@@ -382,41 +636,61 @@ Reply with ONLY one JSON object, no prose, no code fence:
 
 # ---------------------------------------------------------------- host invocation
 
+function Get-ClaudeExecArgs($Cfg) {
+    $a = @()
+    if ($Cfg.model) { $a += @('--model', [string]$Cfg.model) }
+    if ($Cfg.effort) { $a += @('--effort', [string]$Cfg.effort) }
+    return $a
+}
+
 function Invoke-Implementer([string]$PromptPath, [string]$LogPath, [string]$LastMsgPath) {
     $instruction = "Read the file $(Get-RelPath $PromptPath) and follow it exactly."
+    $cfg = $Exec.implementer
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
     if ($ImplHost -eq 'claude') {
         $tools = @('Read', 'Grep', 'Glob', 'Edit', 'Write')
         if ($ImplMcp) { $tools += "mcp__$ImplMcp" }
-        $r = Invoke-Native $ImplExe (@('-p', $instruction, '--output-format', 'json', '--permission-mode', 'acceptEdits', '--allowedTools') + $tools) $LogPath
+        $r = Invoke-Native $ImplExe (@('-p', $instruction, '--output-format', 'json', '--permission-mode', 'acceptEdits') + (Get-ClaudeExecArgs $cfg) + @('--allowedTools') + $tools) $LogPath
         $obj = Get-JsonObjectFromText $r.Text
         $text = if ($obj -and $obj.result) { [string]$obj.result } else { $r.Text }
+        $usage = Get-ClaudeUsage $r.Text
     } else {
-        $r = Invoke-Native $ImplExe @('exec', '-s', $CodexSandbox, '-o', $LastMsgPath, $instruction) $LogPath
+        # -c value khong bao nhay: PS 5.1 lam hong dau nhay trong tham so native; codex doc gia tri tran la chuoi.
+        $cx = @('exec', '-s', $CodexSandbox)
+        if ($cfg.model) { $cx += @('-m', [string]$cfg.model) }
+        if ($cfg.effort) { $cx += @('-c', "model_reasoning_effort=$($cfg.effort)") }
+        if ($cfg.serviceTier) { $cx += @('-c', "service_tier=$($cfg.serviceTier)") }
+        $r = Invoke-Native $ImplExe ($cx + @('-o', $LastMsgPath, $instruction)) $LogPath
         $text = if (Test-Path $LastMsgPath) { [System.IO.File]::ReadAllText($LastMsgPath) } else { $r.Text }
+        $usage = Get-CodexUsage $r.Text $sw.ElapsedMilliseconds
     }
+    if ($usage -and $null -eq $usage.durationMs) { $usage.durationMs = $sw.ElapsedMilliseconds }
     Write-Text $LastMsgPath $text
-    return $text
+    return [pscustomobject]@{ Text = $text; Usage = $usage }
 }
 
 function Invoke-Reviewer([string]$PromptPath, [string]$LogPath) {
     $instruction = "Read the file $(Get-RelPath $PromptPath) and follow it exactly. Output only the JSON object."
-    $r = Invoke-Native $ReviewerExe @('-p', $instruction, '--output-format', 'json', '--allowedTools', 'Read', 'Grep', 'Glob') $LogPath
+    $r = Invoke-Native $ReviewerExe (@('-p', $instruction, '--output-format', 'json') + (Get-ClaudeExecArgs $Exec.reviewer) + @('--allowedTools', 'Read', 'Grep', 'Glob')) $LogPath
     $outer = Get-JsonObjectFromText $r.Text
     $session = if ($outer -and $outer.session_id) { [string]$outer.session_id } else { 'unknown' }
     $inner = $null
     if ($outer -and $outer.result) { $inner = Get-JsonObjectFromText ([string]$outer.result) }
-    return [pscustomobject]@{ Review = $inner; Session = $session }
+    return [pscustomobject]@{ Review = $inner; Session = $session; Usage = (Get-ClaudeUsage $r.Text) }
 }
 
 # ---------------------------------------------------------------- loop
 
 $prevReview = $null
-$maxRounds = $MaxPatchRounds + 1
+$maxRounds = $Exec.maxPatchRounds + 1
 for ($round = 1; $round -le $maxRounds; $round++) {
     $p = Join-Path $RunDir "r$round"
     Write-Host "[$($TaskObj.id)] round $round - implementer ($ImplHost) ..."
     Write-Text "$p.implementer.prompt.md" (New-ImplementerPrompt $round $prevReview)
-    $msg = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.out.txt" "$p.implementer.last.md"
+    $Progress.rounds = $round
+    $implStep = Start-Step 'implementer' $round $ImplHost
+    $impl = Invoke-Implementer "$p.implementer.prompt.md" "$p.implementer.out.txt" "$p.implementer.last.md"
+    $msg = $impl.Text
 
     $status = 'BLOCKED'; $blocker = 'implementer khong in dong RESULT:'
     if ($msg -match '(?m)^\s*RESULT:\s*IMPLEMENTED\b') { $status = 'IMPLEMENTED'; $blocker = $null }
@@ -442,8 +716,10 @@ for ($round = 1; $round -le $maxRounds; $round++) {
         schema = 'result/v1'; taskId = $TaskObj.id; round = $round; host = $ImplHost; status = $status; blocker = $blocker
         baseCommit = $BaseCommit; targetRef = $TaskObj.targetRef; changedFiles = @($changed); outOfScope = $outOfScope
         evidence = $evidence; summary = $summary; log = (Get-RelPath "$p.implementer.out.txt"); diff = (Get-RelPath "$p.diff")
+        exec = $Exec.implementer; usage = $impl.Usage
     }
     Write-Json "$p.result.json" $result
+    Stop-Step $implStep $status $null $impl.Usage
     Write-Host "[$($TaskObj.id)] round $round - $status, $($changed.Count) file doi$(if ($blocker) { ", $blocker" })"
 
     if ($status -eq 'BLOCKED') {
@@ -453,8 +729,10 @@ for ($round = 1; $round -le $maxRounds; $round++) {
 
     Write-Host "[$($TaskObj.id)] round $round - reviewer (claude, read-only) ..."
     Write-Text "$p.reviewer.prompt.md" (New-ReviewerPrompt $round "$p.result.json" "$p.diff")
+    $revStep = Start-Step 'reviewer' $round 'claude'
     $rv = Invoke-Reviewer "$p.reviewer.prompt.md" "$p.reviewer.out.txt"
     if (-not $rv.Review -or @('PASS', 'PATCH', 'TARGET_RECONSIDER', 'BLOCKED') -notcontains [string]$rv.Review.verdict) {
+        Stop-Step $revStep 'INVALID' $null $rv.Usage
         Add-Intervention 'BLOCKED' 'reviewer khong tra JSON hop le'
         Complete-Run 'BLOCKED' "reviewer khong tra JSON hop le (xem $(Get-RelPath "$p.reviewer.out.txt"))" $round
     }
@@ -466,8 +744,10 @@ for ($round = 1; $round -le $maxRounds; $round++) {
         reviewedBase = $BaseCommit; targetRef = $TaskObj.targetRef; verdict = $verdict
         verdictRaw = [string]$rv.Review.verdict; summary = [string]$rv.Review.summary
         findings = @($rv.Review.findings); implHypothesesRuledOut = $ruledOut
+        exec = $Exec.reviewer; usage = $rv.Usage
     }
     Write-Json "$p.review.json" $review
+    Stop-Step $revStep 'done' $verdict $rv.Usage
     Write-Host "[$($TaskObj.id)] round $round - verdict ${verdict}: $($review.summary)"
 
     switch ($verdict) {
@@ -485,5 +765,5 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     }
 }
 
-Add-Intervention 'LOOP_CAP' "PATCH sau $MaxPatchRounds vong sua"
-Complete-Run 'ESCALATE:LOOP_CAP' "PATCH sau $MaxPatchRounds vong sua" $maxRounds
+Add-Intervention 'LOOP_CAP' "PATCH sau $($Exec.maxPatchRounds) vong sua"
+Complete-Run 'ESCALATE:LOOP_CAP' "PATCH sau $($Exec.maxPatchRounds) vong sua" $maxRounds

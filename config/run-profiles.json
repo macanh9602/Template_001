@@ -1,0 +1,92 @@
+{
+  "schema": "run-profiles/v1",
+  "_note": "Profile cho tools/run-task.ps1. null = để host tự chọn (theo ~/.codex/config.toml hoặc setting Claude). Sửa file này để đổi mặc định của project; ghi đè từng lần bằng -Profile/-ImplementerModel/... Xem workflow/run-task.md.",
+  "default": "balanced",
+  "confirmBeforeDispatch": false,
+  "profiles": {
+    "balanced": {
+      "label": "Cân bằng (mặc định)",
+      "maxPatchRounds": 2,
+      "implementer": {
+        "codex": {
+          "model": null,
+          "effort": "high",
+          "serviceTier": null
+        },
+        "claude": {
+          "model": null,
+          "effort": "high"
+        }
+      },
+      "reviewer": {
+        "claude": {
+          "model": null,
+          "effort": "medium"
+        }
+      }
+    },
+    "economy": {
+      "label": "Tiết kiệm token",
+      "maxPatchRounds": 1,
+      "implementer": {
+        "codex": {
+          "model": null,
+          "effort": "medium",
+          "serviceTier": null
+        },
+        "claude": {
+          "model": "sonnet",
+          "effort": "medium"
+        }
+      },
+      "reviewer": {
+        "claude": {
+          "model": "sonnet",
+          "effort": "low"
+        }
+      }
+    },
+    "fast": {
+      "label": "Nhanh (Codex priority)",
+      "maxPatchRounds": 2,
+      "implementer": {
+        "codex": {
+          "model": null,
+          "effort": "medium",
+          "serviceTier": "priority"
+        },
+        "claude": {
+          "model": null,
+          "effort": "medium"
+        }
+      },
+      "reviewer": {
+        "claude": {
+          "model": "sonnet",
+          "effort": "low"
+        }
+      }
+    },
+    "quality": {
+      "label": "Chất lượng cao",
+      "maxPatchRounds": 3,
+      "implementer": {
+        "codex": {
+          "model": null,
+          "effort": "xhigh",
+          "serviceTier": null
+        },
+        "claude": {
+          "model": "opus",
+          "effort": "xhigh"
+        }
+      },
+      "reviewer": {
+        "claude": {
+          "model": "opus",
+          "effort": "high"
+        }
+      }
+    }
+  }
+}

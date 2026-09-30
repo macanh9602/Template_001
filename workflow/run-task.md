@@ -63,6 +63,41 @@ git push
 Output: `handoff/<wp>/runs/<id>/<timestamp>/` — prompt, `*.out.txt` (không dùng `.log`: `.gitignore` của Unity bỏ
 qua), `rN.diff`, `rN.result.json`, `rN.review.json`, `status.json`, `unity-editor-log-tail.txt`.
 
+## 3b. Duyệt trước khi giao + xem tiến độ
+
+**Profile** (`config/run-profiles.json`, sửa được theo project):
+
+| Profile | Dùng khi |
+|---|---|
+| `balanced` (mặc định) | thường ngày |
+| `economy` | muốn tiết kiệm token/usage: effort thấp hơn, reviewer `sonnet`, 1 vòng sửa |
+| `fast` | cần nhanh: Codex `service_tier=priority`, effort `medium` |
+| `quality` | việc khó: effort `xhigh`, reviewer `opus`, 3 vòng sửa |
+
+`null` trong profile = để host tự chọn (theo `~/.codex/config.toml` / setting Claude).
+Ghi đè từng lần: `-Profile`, `-Implementer`, `-ImplementerModel`, `-ImplementerEffort`, `-CodexServiceTier`,
+`-ReviewerModel`, `-ReviewerEffort`, `-MaxPatchRounds`. Claude CLI chưa có cờ tăng tốc; "nhanh" hiện chỉ áp cho Codex.
+
+**Xem kế hoạch, không chạy gì:**
+
+```powershell
+.\tools\run-task.ps1 -Task handoff\<wp>\tasks\<id>.json -Plan
+```
+
+Mở `handoff/<wp>/runs/<id>/_plan/plan.html`: luồng giao việc (agent · model · effort · tier · số vòng sửa),
+nút chọn profile, ô chỉnh từng thông số, biểu đồ ước tính token/chi phí/thời gian theo lịch sử, và **lệnh đã
+ghép sẵn** để copy. `-Confirm` hiện kế hoạch rồi hỏi `y/N` ngay trong terminal; đặt `"confirmBeforeDispatch": true`
+trong config để luôn hỏi (bỏ qua một lần bằng `-Yes`).
+
+**Tiến độ:** `handoff/<wp>/runs/dashboard.html` — runner ghi lại sau mỗi bước, trang tự làm mới 5 giây khi có
+task đang chạy: số task đang chạy/đạt, số lần người can thiệp, tổng token và chi phí; mỗi task là một dòng thời gian
+`V1 implementer → V1 reviewer (PATCH) → V2 …`, bước đang chạy nhấp nháy. Trên Windows runner tự mở trang
+(tắt bằng `-NoOpen`).
+
+Usage lấy từ output thật: Claude `--output-format json` (token, `total_cost_usd`, thời gian, model); Codex header
+`model:` / `reasoning effort:` và dòng `tokens used`. Token Claude không tính cache read (rẻ, ghi riêng
+`cacheReadTokens`); Codex không báo chi phí USD.
+
 ## 4. Kết quả
 
 | Status | Nghĩa | Ai làm tiếp |

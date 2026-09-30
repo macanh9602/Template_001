@@ -110,3 +110,7 @@ InitTestScene*.unity*
 /.toolchain/
 /.toolchain.local.json
 /Docs/asset-pipeline.json
+
+# Trang runner tu sinh (tao lai moi lan chay)
+handoff/*/runs/dashboard.html
+handoff/*/runs/*/_plan/

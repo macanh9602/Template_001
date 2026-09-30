@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--__REFRESH__-->
+<title>Agent Runs</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e3e1dc;
+    --accent: #3b5bdb; --ok: #2b8a3e; --warn: #c77700; --bad: #c92a2a; --run: #1971c2;
+    --chip: #eef0f6; --bar: #cfd6f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16171a; --panel: #1f2125; --ink: #ecebe8; --muted: #9b9a96; --line: #30333a;
+      --accent: #7c93ff; --ok: #51cf66; --warn: #fcc419; --bad: #ff6b6b; --run: #4dabf7; --chip: #2a2d35; --bar: #37406b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .grid { display: grid; gap: 12px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 16px 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .kpi .v { font-size: 22px; font-weight: 650; }
+  .kpi .l { color: var(--muted); font-size: 12px; }
+  .pill { display: inline-block; white-space: nowrap; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; }
+  .s-ok { background: var(--ok); } .s-bad { background: var(--bad); } .s-warn { background: var(--warn); } .s-run { background: var(--run); }
+  .chip { display: inline-block; background: var(--chip); border-radius: 6px; padding: 1px 7px; margin: 2px 4px 2px 0; font-size: 12px; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .spacer { flex: 1; }
+  /* pipeline */
+  .pipe { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 4px 0; }
+  .node { min-width: 170px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .node .t { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .node .n { font-weight: 650; margin: 2px 0 4px; }
+  .arrow { align-self: center; color: var(--muted); padding: 0 8px; font-size: 18px; }
+  .loop { align-self: center; border: 1px dashed var(--line); border-radius: 999px; padding: 4px 10px; color: var(--muted); font-size: 12px; margin-left: 8px; white-space: nowrap; }
+  /* timeline */
+  .tl { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .step { border-radius: 8px; padding: 6px 9px; font-size: 12px; border: 1px solid var(--line); background: var(--chip); min-width: 120px; }
+  .step b { display: block; font-size: 12px; }
+  .step.running { border-color: var(--run); box-shadow: 0 0 0 2px color-mix(in srgb, var(--run) 30%, transparent); animation: pulse 1.6s infinite; }
+  .step.PASS { border-color: var(--ok); } .step.PATCH { border-color: var(--warn); } .step.BLOCKED, .step.TARGET_RECONSIDER { border-color: var(--bad); }
+  @keyframes pulse { 50% { opacity: .55; } }
+  .bars { display: grid; grid-template-columns: 110px 1fr 90px; gap: 6px 10px; align-items: center; font-size: 12px; }
+  .bar { height: 10px; border-radius: 5px; background: var(--chip); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+  /* controls */
+  label.f { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  select, input { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+  .ctl { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { font: inherit; border: 0; background: transparent; color: var(--ink); padding: 7px 12px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  pre.cmd { margin: 0; white-space: pre-wrap; word-break: break-all; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12px; }
+  button.copy { font: inherit; border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  .tbl { overflow-x: auto; }
+  .muted { color: var(--muted); }
+  ul.plain { margin: 0; padding-left: 18px; }
+  section { margin-top: 18px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const DATA = /*__DATA__*/null;
+
+const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstChild; };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = (n) => n == null ? '—' : Number(n).toLocaleString('vi-VN');
+const usd = (n) => n == null ? '—' : '$' + Number(n).toFixed(2);
+const mins = (ms) => ms == null ? '—' : ms < 60000 ? Math.round(ms / 1000) + ' giây' : (ms / 60000).toFixed(1) + ' phút';
+const STATUS = {
+  DONE_PENDING_FEEL: ['s-ok', 'Đạt – chờ feel'], RUNNING: ['s-run', 'Đang chạy'], PLANNED: ['s-run', 'Chờ duyệt'],
+  'ESCALATE:LOOP_CAP': ['s-warn', 'Quá số vòng sửa'], BLOCKED_ON_TARGET: ['s-warn', 'Cần chốt lại target'],
+  BLOCKED: ['s-bad', 'Bị chặn'], BLOCKED_TOOLCHAIN: ['s-bad', 'Thiếu công cụ'], CANCELLED: ['s-warn', 'Đã huỷ'],
+};
+const pill = (s) => { const [c, l] = STATUS[s] || ['s-warn', s || '?']; return `<span class="pill ${c}">${esc(l)}</span>`; };
+const chips = (o) => Object.entries(o).filter(([, v]) => v != null && v !== '').map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join('');
+
+function runsTotals(runs) {
+  let tokens = 0, cost = 0, ms = 0;
+  for (const r of runs) { const u = r.usage?.total || {}; tokens += u.tokens || 0; cost += u.costUsd || 0; ms += u.durationMs || 0; }
+  return { tokens, cost, ms };
+}
+
+function historyStats(runs) {
+  // Trung binh theo profile, chi tinh run co usage.
+  const g = {};
+  for (const r of runs) {
+    const u = r.usage?.total; if (!u) continue;
+    const k = r.profile || 'balanced';
+    g[k] ??= { n: 0, tokens: 0, cost: 0, ms: 0, rounds: 0 };
+    g[k].n++; g[k].tokens += u.tokens || 0; g[k].cost += u.costUsd || 0; g[k].ms += u.durationMs || 0; g[k].rounds += r.rounds || 0;
+  }
+  for (const k in g) { const s = g[k]; s.tokens /= s.n; s.cost /= s.n; s.ms /= s.n; s.rounds /= s.n; }
+  return g;
+}
+
+function barsBlock(stats, profiles, current) {
+  const keys = Object.keys(profiles);
+  const max = { tokens: 1, cost: 0.01, ms: 1 };
+  for (const k of keys) { const s = stats[k]; if (s) { max.tokens = Math.max(max.tokens, s.tokens); max.cost = Math.max(max.cost, s.cost); max.ms = Math.max(max.ms, s.ms); } }
+  const rows = (metric, fmt) => keys.map(k => {
+    const s = stats[k]; const v = s ? s[metric] : null;
+    const w = v == null ? 0 : Math.max(3, 100 * v / max[metric]);
+    return `<div>${esc(k)}${k === current ? ' ◂' : ''}</div><div class="bar"><i style="width:${w}%"></i></div><div>${v == null ? '<span class="muted">chưa có</span>' : fmt(v)} ${s ? `<span class="muted">(${s.n})</span>` : ''}</div>`;
+  }).join('');
+  return `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+    <div><div class="sub">Token trung bình / lần chạy</div><div class="bars">${rows('tokens', v => num(Math.round(v)))}</div></div>
+    <div><div class="sub">Chi phí Claude trung bình</div><div class="bars">${rows('cost', usd)}</div></div>
+    <div><div class="sub">Thời gian trung bình</div><div class="bars">${rows('ms', mins)}</div></div>
+  </div>`;
+}
+
+function timeline(run) {
+  if (!run.steps?.length) return '<div class="sub" style="margin-top:8px">Không có chi tiết từng bước (run cũ).</div>';
+  return `<div class="tl">${run.steps.map(s => {
+    const who = s.role === 'implementer' ? `🛠 ${esc(s.host)}` : `🔎 ${esc(s.host)}`;
+    const st = s.state === 'running' ? 'running' : (s.verdict || s.outcome || '');
+    const detail = s.state === 'running' ? 'đang chạy…' : esc(s.verdict || s.outcome || 'xong');
+    const u = s.usage || {};
+    return `<div class="step ${esc(st)}"><b>V${s.round} · ${who}</b>${detail}<div class="muted">${u.tokens ? num(u.tokens) + ' tok ' : ''}${u.costUsd != null ? usd(u.costUsd) + ' ' : ''}${u.durationMs ? mins(u.durationMs) : ''}</div></div>`;
+  }).join('<span class="arrow">›</span>')}</div>`;
+}
+
+function renderDashboard(d) {
+  const runs = d.runs || [];
+  const t = runsTotals(runs);
+  const pass = runs.filter(r => r.status === 'DONE_PENDING_FEEL').length;
+  const running = runs.filter(r => r.status === 'RUNNING');
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  app.append($(`<div><h1>Tiến độ agent — ${esc(d.wp)}</h1><div class="sub">Cập nhật ${esc(d.generatedAt)}${d.live ? ' · tự làm mới mỗi 5 giây' : ''}</div></div>`));
+  app.append($(`<div class="grid kpis">
+    <div class="card kpi"><div class="v">${running.length}</div><div class="l">Đang chạy</div></div>
+    <div class="card kpi"><div class="v">${pass}/${runs.length}</div><div class="l">Lần chạy đạt</div></div>
+    <div class="card kpi"><div class="v">${(d.interventions || []).length}</div><div class="l">Lần người phải can thiệp</div></div>
+    <div class="card kpi"><div class="v">${num(t.tokens)}</div><div class="l">Tổng token</div></div>
+    <div class="card kpi"><div class="v">${usd(t.cost)}</div><div class="l">Chi phí Claude</div></div>
+  </div>`));
+  const latest = {};
+  for (const r of runs) if (!latest[r.taskId] || r.startedAt > latest[r.taskId].startedAt) latest[r.taskId] = r;
+  const sec = $(`<section><h2>Task</h2><div class="grid"></div></section>`);
+  for (const r of Object.values(latest).sort((a, b) => b.startedAt.localeCompare(a.startedAt))) {
+    sec.lastChild.append($(`<div class="card">
+      <div class="row"><b>${esc(r.taskId)}</b>${pill(r.status)}<span class="spacer"></span><span class="sub">${esc(r.startedAt)}</span></div>
+      <div style="margin-top:6px">${chips({ profile: r.profile, implementer: r.exec?.implementer?.host, model: r.exec?.implementer?.model || r.observedModel, effort: r.exec?.implementer?.effort, tier: r.exec?.implementer?.serviceTier, reviewer: r.exec?.reviewer?.model || 'claude' })}</div>
+      ${r.reason ? `<div class="sub" style="margin-top:6px">${esc(r.reason).slice(0, 280)}</div>` : ''}
+      ${timeline(r)}
+    </div>`));
+  }
+  app.append(sec);
+  app.append($(`<section><h2>Lịch sử chạy</h2><div class="card tbl"><table>
+    <tr><th>Bắt đầu</th><th>Task</th><th>Kết quả</th><th>Profile</th><th>Implementer</th><th>Vòng</th><th>Token</th><th>Chi phí</th><th>Thời gian</th></tr>
+    ${runs.slice().sort((a, b) => b.startedAt.localeCompare(a.startedAt)).map(r => `<tr><td>${esc(r.startedAt)}</td><td>${esc(r.taskId)}</td><td>${pill(r.status)}</td><td>${esc(r.profile || '—')}</td><td>${esc(r.exec?.implementer?.host || r.host || '—')} ${esc(r.observedModel || '')}</td><td>${r.rounds ?? '—'}</td><td>${num(r.usage?.total?.tokens)}</td><td>${usd(r.usage?.total?.costUsd)}</td><td>${mins(r.usage?.total?.durationMs)}</td></tr>`).join('')}
+  </table></div></section>`));
+  if ((d.interventions || []).length) {
+    app.append($(`<section><h2>Lần người phải can thiệp</h2><div class="card tbl"><table><tr><th>Lúc</th><th>Task</th><th>Loại</th><th>Lý do</th></tr>
+      ${d.interventions.slice().reverse().map(i => `<tr><td>${esc(i.at)}</td><td>${esc(i.taskId)}</td><td>${esc(i.state)}</td><td>${esc(i.reason).slice(0, 200)}</td></tr>`).join('')}</table></div></section>`));
+  }
+}
+
+function renderPlan(d) {
+  const p = d.plan;
+  const state = JSON.parse(JSON.stringify(p.exec));
+  const app = document.getElementById('app');
+  const hostOk = (h) => (p.hosts[h] || {}).ok;
+  const stats = historyStats(d.runs || []);
+
+  function applyProfile(name) {
+    const pr = p.profiles[name]; if (!pr) return;
+    state.profile = name; state.maxPatchRounds = pr.maxPatchRounds;
+    const ih = state.implementer.host;
+    Object.assign(state.implementer, { model: null, effort: null, serviceTier: null }, (pr.implementer || {})[ih] || {});
+    Object.assign(state.reviewer, { model: null, effort: null }, (pr.reviewer || {}).claude || {});
+  }
+
+  function command() {
+    const a = [`powershell -ExecutionPolicy Bypass -File .\\tools\\run-task.ps1 -Task ${p.taskPath}`, `-Profile ${state.profile}`];
+    const pr = p.profiles[state.profile] || {};
+    const base = Object.assign({ model: null, effort: null, serviceTier: null }, (pr.implementer || {})[state.implementer.host] || {});
+    const rb = Object.assign({ model: null, effort: null }, (pr.reviewer || {}).claude || {});
+    if (state.implementer.host !== p.exec.implementerDefault) a.push(`-Implementer ${state.implementer.host}`);
+    if ((state.implementer.model || null) !== base.model && state.implementer.model) a.push(`-ImplementerModel ${state.implementer.model}`);
+    if ((state.implementer.effort || null) !== base.effort && state.implementer.effort) a.push(`-ImplementerEffort ${state.implementer.effort}`);
+    if (state.implementer.host === 'codex' && (state.implementer.serviceTier || null) !== base.serviceTier) a.push(`-CodexServiceTier ${state.implementer.serviceTier || 'default'}`);
+    if ((state.reviewer.model || null) !== rb.model && state.reviewer.model) a.push(`-ReviewerModel ${state.reviewer.model}`);
+    if ((state.reviewer.effort || null) !== rb.effort && state.reviewer.effort) a.push(`-ReviewerEffort ${state.reviewer.effort}`);
+    if (state.maxPatchRounds !== pr.maxPatchRounds) a.push(`-MaxPatchRounds ${state.maxPatchRounds}`);
+    a.push('-Commit');
+    return a.join(' ');
+  }
+
+  function draw() {
+    const im = state.implementer, rv = state.reviewer;
+    app.innerHTML = '';
+    app.append($(`<div><h1>Duyệt trước khi giao — ${esc(p.task.id)}</h1><div class="sub">Chưa có gì được chạy. Chỉnh bên dưới, rồi copy lệnh để giao việc.</div></div>`));
+    app.append($(`<section class="card"><h2>Luồng giao việc</h2><div class="pipe">
+      <div class="node"><div class="t">Task</div><div class="n">${esc(p.task.id)}</div><div class="sub">${esc(p.task.packet)}</div></div>
+      <span class="arrow">→</span>
+      <div class="node"><div class="t">🛠 Implementer</div><div class="n">${esc(im.host)}</div>${chips({ model: im.model || 'mặc định host', effort: im.effort || 'mặc định', tier: im.host === 'codex' ? (im.serviceTier || 'standard') : null })}</div>
+      <span class="arrow">→</span>
+      <div class="node"><div class="t">🔎 Reviewer (chỉ đọc)</div><div class="n">claude</div>${chips({ model: rv.model || 'mặc định host', effort: rv.effort || 'mặc định' })}</div>
+      <span class="loop">↺ sửa tối đa ${state.maxPatchRounds} vòng</span>
+      <span class="arrow">→</span>
+      <div class="node"><div class="t">Kết quả</div><div class="n">Đạt / Báo người</div><div class="sub">Tự commit khi đạt</div></div>
+    </div></section>`));
+
+    const seg = $(`<div class="seg"></div>`);
+    for (const [k, pr] of Object.entries(p.profiles)) {
+      const b = $(`<button type="button" class="${k === state.profile ? 'on' : ''}">${esc(pr.label || k)}</button>`);
+      b.onclick = () => { applyProfile(k); draw(); };
+      seg.append(b);
+    }
+    const ctl = $(`<section class="card"><h2>Chỉnh cấu hình</h2><div class="row" style="margin-bottom:12px"></div><div class="grid ctl"></div></section>`);
+    ctl.children[1].append(seg);
+    const g = ctl.children[2];
+    const field = (label, el) => { const l = $(`<label class="f">${esc(label)}</label>`); l.append(el); g.append(l); };
+    const sel = (opts, val, on) => { const s = $(`<select>${opts.map(o => `<option value="${esc(o[0])}" ${String(o[0]) === String(val ?? '') ? 'selected' : ''} ${o[2] ? 'disabled' : ''}>${esc(o[1])}</option>`).join('')}</select>`); s.onchange = () => { on(s.value); draw(); }; return s; };
+    const inp = (val, list, on) => { const i = $(`<input value="${esc(val || '')}" placeholder="mặc định host" list="${list}">`); i.onchange = () => { on(i.value.trim() || null); draw(); }; return i; };
+    field('Implementer', sel(Object.keys(p.hosts).filter(h => h !== 'unity').map(h => [h, h + (hostOk(h) ? '' : ' (chưa sẵn sàng)'), !hostOk(h)]), im.host, v => { im.host = v; applyProfile(state.profile); }));
+    field('Model implementer', inp(im.model, im.host === 'claude' ? 'claude-models' : 'codex-models', v => im.model = v));
+    field('Effort implementer', sel([['', 'mặc định'], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh']].concat(im.host === 'claude' ? [['max', 'max']] : []), im.effort, v => im.effort = v || null));
+    if (im.host === 'codex') field('Tốc độ Codex', sel([['', 'standard'], ['priority', 'priority (nhanh hơn, tốn hơn)']], im.serviceTier, v => im.serviceTier = v || null));
+    field('Model reviewer', inp(rv.model, 'claude-models', v => rv.model = v));
+    field('Effort reviewer', sel([['', 'mặc định'], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh'], ['max', 'max']], rv.effort, v => rv.effort = v || null));
+    field('Số vòng sửa tối đa', sel([[0, '0'], [1, '1'], [2, '2'], [3, '3']], state.maxPatchRounds, v => state.maxPatchRounds = Number(v)));
+    ctl.append($(`<datalist id="claude-models"><option value="sonnet"><option value="opus"><option value="haiku"></datalist>`));
+    ctl.append($(`<datalist id="codex-models">${(p.knownModels?.codex || []).map(m => `<option value="${esc(m)}">`).join('')}</datalist>`));
+    app.append(ctl);
+
+    app.append($(`<section class="card"><h2>Ước tính theo lịch sử</h2>${barsBlock(stats, p.profiles, state.profile)}<div class="sub" style="margin-top:8px">Số trong ngoặc = số lần chạy đã đo. Token là của implementer + reviewer; chi phí chỉ có ở Claude.</div></section>`));
+
+    const cmd = command();
+    const box = $(`<section class="card"><div class="row"><h2 style="margin:0">Lệnh giao việc</h2><span class="spacer"></span><button class="copy" type="button">Copy</button></div><pre class="cmd" style="margin-top:10px">${esc(cmd)}</pre></section>`);
+    box.querySelector('button').onclick = async (e) => { try { await navigator.clipboard.writeText(cmd); e.target.textContent = 'Đã copy'; } catch { e.target.textContent = 'Chọn và copy tay'; } };
+    app.append(box);
+
+    const hostRows = Object.entries(p.hosts).map(([h, v]) => `<tr><td>${esc(h)}</td><td>${v.ok ? pill('DONE_PENDING_FEEL').replace('Đạt – chờ feel', 'Sẵn sàng') : pill('BLOCKED_TOOLCHAIN')}</td><td>${(v.levels || []).map(l => `<span class="chip">${esc(l)}</span>`).join('')}</td></tr>`).join('');
+    app.append($(`<section class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+      <div class="card"><h2>Tiêu chí đạt</h2><ul class="plain">${p.task.acceptance.map(a => `<li><span class="chip">${esc(a.kind)}</span>${esc(a.text)}</li>`).join('')}</ul></div>
+      <div class="card"><h2>Được sửa</h2><ul class="plain">${p.task.writeSet.map(w => `<li><code>${esc(w)}</code></li>`).join('')}</ul>
+        <h2 style="margin-top:14px">Máy &amp; agent</h2><table>${hostRows}</table></div>
+    </section>`));
+  }
+  draw();
+}
+
+if (!DATA) document.getElementById('app').textContent = 'Không có dữ liệu (file mẫu, chưa được runner điền).';
+else if (DATA.mode === 'plan') renderPlan(DATA);
+else renderDashboard(DATA);
+</script>
+</body>
+</html>

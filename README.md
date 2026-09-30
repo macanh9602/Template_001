@@ -106,6 +106,10 @@ tools/
   doctor.ps1           capability máy + từng agent host (Unity MCP headless thật)
   run-task.ps1         task.json → implementer → git diff → reviewer read-only → PATCH/PASS
   template-lint.ps1    chặn root song song, meta mồ côi, path máy, BOM, ref gãy, package trôi
+  run-dashboard.html   trang duyệt kế hoạch + tiến độ agent (runner tự điền dữ liệu)
+
+config/
+  run-profiles.json    profile balanced / economy / fast / quality: model, effort, tier, số vòng sửa
 
 Docs/
   project-context.md
