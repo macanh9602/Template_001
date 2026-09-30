@@ -87,6 +87,8 @@ function Invoke-UnityTool {
                 $text = (@($res.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join "`n")
                 try { $payload = $text | ConvertFrom-Json } catch { $payload = [pscustomobject]@{ text = $text } }
             }
+            # FastMCP boc gia tri tra ve trong {"result": {...}} (thay tren Unity that, run 20260930-134739).
+            if ($payload -and $payload.PSObject.Properties['result'] -and -not $payload.PSObject.Properties['data'] -and $payload.result -isnot [string]) { $payload = $payload.result }
             # Unity ban (dang compile / chay test): server tra success=false kem 'busy' / 'not ready' -> thu lai.
             $msg = [string]$(if ($payload) { @($payload.error, $payload.message) -join ' ' } else { '' })
             if ($res.isError -or ($payload -and $payload.success -eq $false -and $msg -match '(?i)busy|not ready|compil|reload|ping|timeout|retry')) {
@@ -104,10 +106,18 @@ function Invoke-UnityTool {
 }
 
 function Get-ConsoleEntries($Payload) {
+    # Khong hieu dinh dang -> loi, khong duoc coi la '0 dong' (neu khong buoc 'maxCount 0' PASS gia).
+    if (-not $Payload -or -not $Payload.PSObject.Properties['data']) { throw "read_console tra dinh dang la: $($Payload | ConvertTo-Json -Compress -Depth 6)" }
+    if ($Payload.success -eq $false) { throw "read_console loi: $($Payload.message) $($Payload.error)" }
     $data = $Payload.data
     $list = @()
     if ($data -is [System.Array]) { $list = $data }
-    elseif ($data) { foreach ($k in @('lines', 'items', 'entries', 'messages')) { if ($data.$k) { $list = @($data.$k); break } } }
+    elseif ($data -is [string]) { $list = @($data -split "`r?`n" | Where-Object { $_ }) }
+    elseif ($data) {
+        $found = $false
+        foreach ($k in @('lines', 'items', 'entries', 'messages')) { if ($data.PSObject.Properties[$k]) { $list = @($data.$k); $found = $true; break } }
+        if (-not $found) { throw "read_console: khong tim thay danh sach log trong data: $($data | ConvertTo-Json -Compress -Depth 6)" }
+    }
     return @($list | ForEach-Object {
             if ($_ -is [string]) { $_ } elseif ($_.message) { [string]$_.message } elseif ($_.text) { [string]$_.text } else { ($_ | ConvertTo-Json -Compress) }
         })

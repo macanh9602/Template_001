@@ -21,7 +21,7 @@
 
   Output: handoff/<wp>/runs/<id>/<timestamp>/  (prompt, *.out.txt, diff, rN.result.json, rN.review.json,
           status.json, unity-editor-log-tail.txt). Khong dung duoi .log: .gitignore cua Unity bo qua *.log.
-  Runner khong push. Chi commit khi co -Commit va task PASS; neu khong, in lenh git add gom ca code lan evidence.
+  Runner khong push. -Commit: task PASS -> commit code + evidence; chua PASS -> chi commit evidence (handoff/).
 
 .EXAMPLE
   .\tools\run-task.ps1 -Task handoff\wp-004\tasks\WP004-B-VERIFY.json -Plan
@@ -59,7 +59,7 @@ param(
     [string]$Implementer = '',
     [int]$CapabilityMaxAgeMinutes = 480,
     [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write',
-    # Commit changedFiles + run dir khi task PASS. Mac dinh tat: runner chi in lenh git de nguoi chay tu commit.
+    # Commit changedFiles + run dir khi task PASS (chua PASS: chi evidence). Mac dinh tat: runner chi in lenh git.
     [switch]$Commit,
     # Khong tu chay doctor khi capabilities thieu/qua han.
     [switch]$NoAutoDoctor
@@ -211,7 +211,11 @@ function Complete-Run([string]$Status, [string]$Reason, [int]$Rounds) {
     Write-Host "run dir: $(Get-RelPath $RunDir)"
     # Bai hoc pilot run 3: code task sua ma chi add evidence thi doi may la mat.
     $paths = @(@($LastChanged) + @((Get-RelPath $RunDir), (Get-RelPath $InterventionsPath)) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Sort-Object -Unique)
-    if ($Status -eq 'DONE_PENDING_FEEL' -and $Commit) {
+    if ($Commit -and $Status -ne 'DONE_PENDING_FEEL') {
+        # Chua PASS: chi commit evidence (handoff/), khong commit code chua review.
+        $paths = @($paths | Where-Object { $_.StartsWith('handoff/') })
+    }
+    if ($Commit -and $paths.Count) {
         $null = Invoke-Git (@('add', '--') + $paths)
         $null = Invoke-Git @('commit', '-m', "$($TaskObj.id): $Status ($(Get-RelPath $RunDir))")
         Write-Host "committed: $((Invoke-Git @('rev-parse', '--short', 'HEAD')).Trim()) ($($paths.Count) path)"

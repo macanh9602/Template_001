@@ -183,3 +183,4 @@ Nhiều task được ở `EXECUTABLE` cùng lúc (`handoff/ROADMAP.md`). Chạy
 | Script hỏng trên PS 5.1 | `.ps1` UTF-8 không BOM có tiếng Việt | `tools/*.ps1` chỉ ASCII (lint `PS1_NON_ASCII`) |
 | Runner tưởng implementer đã xong khi nó hết quota giữa chừng | không có tin nhắn cuối → runner đọc log thô, trong đó có dòng `RESULT:` của prompt mẫu | chỉ tin tin nhắn cuối (`-o`); chặn dòng mẫu; trạng thái `BLOCKED_QUOTA` |
 | Codex mất shell (`Access is denied`) | sandbox Windows không spawn được `pwsh` bản Microsoft Store | doctor WARN `SANDBOX_SHELL`: cài PowerShell 7 bản MSI hoặc `-CodexSandbox danger-full-access` |
+| Script verify lần đầu trên Unity thật: `run_tests` "không trả job_id", console "0 dòng" | FastMCP bọc kết quả trong `{"result": {...}}`, còn server giả trả thẳng | module bóc `result`; đọc console mà sai định dạng thì báo lỗi, không coi là 0 dòng (nếu coi là 0 dòng thì `maxCount 0` sẽ PASS giả) |
