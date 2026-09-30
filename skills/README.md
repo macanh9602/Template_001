@@ -24,6 +24,8 @@
 | external Level Editor · HTML authoring · export level JSON · generator · cần quyết định author level ở đâu | `authoring-pipeline/` |
 | level editor · Unity authoring window · UI Toolkit · editor UX/responsive/splitter/input | `level-editor/` |
 | "animation này chưa đã" · chuyển động · tween · juice · có video ref | `game-feel-motion/` |
+| bắt đầu visual/feel pass · "chưa biết làm art kiểu gì" · đổi art direction · cần chốt look/motion trước khi implement | `visual-lab/` (+ `workflow/visual-direction.md`) |
+| visual chưa giống direction · cần evidence ảnh trước/sau · chuẩn bị báo IMPLEMENTED story visual | `visual-review/` |
 | độ khó · level generation · DDA · difficulty curve · booster trigger · "level dễ quá / khó quá" | `difficulty-design/` |
 | giải thích cơ chế cho GD · viết tooltip · chốt open question với GD · GD đọc số liệu sai | `gd-communication/` |
 | GD gửi HTML cần đồ họa · "gen art/UI/sprite từ html" · "xuất model 3D từ html" · art manifest · style lock | `art-gen/` |
@@ -51,6 +53,7 @@ Feature mới có GDD rõ     → spec-feature → code-style → verification
 Feature mơ hồ             → enrich-context → visualiser → spec-lite
 Rủi ro kỹ thuật           → technical-slice → code-style
 "Chuyển động chưa đã"     → game-feel-motion (+ visualiser) → code-style
+Visual pass               → visual-lab → promote-direction (PO) → Import → visual-review (+ game-feel-motion)
 Authoring pipeline         → authoring-pipeline → external tool / generator / level-editor branch
 Tool Unity cho GD          → authoring-pipeline → level-editor (+ enrich-context) → gd-communication
 Cân bằng độ khó           → difficulty-design (+ visualiser) → gd-communication

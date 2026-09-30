@@ -88,6 +88,7 @@ runner gọi **thẳng Unity MCP qua HTTP** (`tools/UnityMcp.psm1`, URL lấy t�
 - Kết luận PASS/FAIL nên dựa vào **log level** (tool log `Debug.Log` khi pass, `LogWarning` khi fail) và `minCount`/`maxCount`, không dựa vào text: `read_console` chỉ trả **dòng đầu** của log nhiều dòng. `expect` (regex) vẫn dùng được cho log một dòng; không khớp thì thử lại trên JSON thô.
 - Tất cả bước PASS ⇒ `DONE_PENDING_FEEL` ngay, **không implementer, không reviewer** (acceptance là số đo được).
 - Có bước FAIL ⇒ `onFail: implementer` (mặc định): giao implementer với báo cáo `r0.verify.md`; `stop` ⇒ `BLOCKED`.
+- `-VerifyOnly`: chỉ chạy script, FAIL ⇒ `BLOCKED`, **không bao giờ gọi AI**; không hỏi y/N, không đòi host AI qua smoke (repo mới chỉ cần doctor thấy Unity MCP). `-Commit` vẫn commit evidence của run BLOCKED.
 - Unity không trả lời khi đang compile/chạy test ⇒ mỗi lệnh tự thử lại (tới 10–15 phút); test job poll tới khi xong.
 - Tool dùng (MCP for Unity v10): `refresh_unity`, `read_console`, `run_tests`, `get_test_job`, `execute_menu_item`.
 - Pilot WP004-B-VERIFY: cùng việc này bằng agent tốn ~110k token Codex + ~$0.20 Claude.

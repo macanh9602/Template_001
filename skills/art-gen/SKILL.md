@@ -131,6 +131,10 @@ art/
 
 ---
 
+## Liên quan: visual direction
+
+Art-gen sinh **asset placeholder** từ HTML của GD. Chốt **hướng + số** (camera, palette, seam, motion) là việc của `visual-lab` → `tools/promote-direction.ps1` → Import (`workflow/visual-direction.md`). Asset gen ra phải khớp direction đã APPROVED; lệch thì sửa asset, không sửa direction.
+
 ## Không làm gì
 
 - Không bảo image model ghép atlas, giữ grid/pixel chính xác, hay đặt tên file cuối cùng mà không validate.

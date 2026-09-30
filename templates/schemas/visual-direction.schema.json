@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "visual-direction/v1",
+  "title": "Visual direction (proposal hoac direction da promote)",
+  "description": "Mot schema cho ca proposal (lab xuat, status <= CANDIDATE) va direction vN (PO promote theo section). Importer chi nhap section APPROVED. Xem workflow/visual-direction.md.",
+  "type": "object",
+  "required": ["schema", "sections", "profileMap"],
+  "properties": {
+    "schema": { "const": "visual-direction/v1" },
+    "project": { "type": "string", "description": "id project (vd block-home). Khong dung lam prefix schema." },
+    "version": { "type": "integer", "minimum": 0, "description": "0 = proposal chua promote; promote-direction.ps1 tang +1 moi lan." },
+    "source": { "type": "string", "description": "lab/tool da xuat file (duong dan tuong doi repo)." },
+    "proposal": { "type": "string", "description": "direction vN: proposal nguon cua lan promote gan nhat." },
+    "supersedes": { "type": ["string", "null"], "description": "direction vN-1 ma ban nay thay the." },
+    "referenceLevel": { "type": "string", "description": "level tham chieu cho capture vong giua (level dong nhat, khong phai dep nhat)." },
+    "intent": {
+      "type": "object",
+      "description": "Visual intent: vai cau + dieu da khoa. So chinh xac nam o sections.*.values.",
+      "properties": {
+        "summary": { "type": "string" },
+        "locked": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "notes": { "type": "string" },
+    "sections": {
+      "type": "object",
+      "description": "Thuong gap: look, motion, fx. Moi section promote rieng (vd Look khoa truoc, Motion/FX sau).",
+      "additionalProperties": { "$ref": "#/$defs/section" }
+    },
+    "profileMap": {
+      "type": "object",
+      "description": "key trong values -> 'TenAsset.field.path' (SerializedProperty path). 'Mesh.*' = brief cho Blender, khong import.",
+      "additionalProperties": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z0-9_.\\[\\]]+$" }
+    },
+    "tolerance": {
+      "type": "object",
+      "description": "Tolerance motion parity. Thieu => total 0.10 (ti le), peak 0.15 (ti le), tPeak 0.03 s, end 0.02.",
+      "properties": {
+        "total": { "type": "number", "minimum": 0 },
+        "peak": { "type": "number", "minimum": 0 },
+        "tPeak": { "type": "number", "minimum": 0 },
+        "end": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "meshBrief": { "type": "object", "description": "Input cho Blender generation brief." },
+    "legacy": { "type": "object", "description": "Field cua schema cu giu lai khi migrate (chi de tham khao)." }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "enum": ["DRAFT", "CANDIDATE", "APPROVED", "SUPERSEDED"],
+          "description": "Lab/agent chi ghi DRAFT/CANDIDATE. APPROVED chi do promote-direction.ps1 ghi theo quyet dinh PO."
+        },
+        "approvedBy": { "type": "string" },
+        "approvedAt": { "type": "string", "description": "yyyy-MM-dd" },
+        "lockedGroups": { "type": "array", "items": { "type": "string" } },
+        "values": {
+          "type": "object",
+          "description": "So / mau / enum da chot. Moi key phai co trong profileMap (khong map duoc => khong duoc co trong lab).",
+          "additionalProperties": { "type": ["number", "string", "boolean"] }
+        },
+        "metrics": {
+          "type": "object",
+          "description": "Section motion: target may-kiem-duoc cho motion parity, theo demo.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["total", "channels"],
+            "properties": {
+              "total": { "type": "number" },
+              "channels": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["peak", "tPeak", "end"],
+                  "properties": {
+                    "peak": { "type": "number" }, "tPeak": { "type": "number" },
+                    "min": { "type": "number" }, "tMin": { "type": "number" },
+                    "end": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

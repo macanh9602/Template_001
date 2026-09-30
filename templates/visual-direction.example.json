@@ -1,0 +1,44 @@
+{
+  "schema": "visual-direction/v1",
+  "project": "my-game",
+  "version": 0,
+  "source": "handoff/wp-00X/lab/visual-lab.html",
+  "referenceLevel": "level_003",
+  "intent": {
+    "summary": "Am, mem, doc duoc tren level dong nhat. Hue bao hoa chi danh cho cap dich-den / nhan vat.",
+    "locked": ["camera tilt 22", "floor tonal, seam nhe"]
+  },
+  "notes": "Lab xuat file nay vao handoff/visual/proposals/. PO promote theo section bang tools/promote-direction.ps1.",
+  "sections": {
+    "look": {
+      "status": "CANDIDATE",
+      "lockedGroups": ["camera", "floor"],
+      "values": { "camTilt": 22, "camFov": 28, "floorColor": "#f6ecdc", "floorSeam": 0.17, "shadows": "on", "blockH": 0.5 }
+    },
+    "motion": {
+      "status": "CANDIDATE",
+      "values": { "pickDur": 0.08, "pickLift": 0.35 },
+      "metrics": {
+        "drag": {
+          "total": 1.32,
+          "channels": {
+            "block y / lift": { "peak": 1, "tPeak": 0.083, "min": 0, "tMin": 0, "end": 0 }
+          }
+        }
+      }
+    },
+    "fx": { "status": "DRAFT", "values": {} }
+  },
+  "profileMap": {
+    "camTilt": "VisualProfile.camera.tiltDeg",
+    "camFov": "VisualProfile.camera.fov",
+    "floorColor": "VisualProfile.floor.color",
+    "floorSeam": "VisualProfile.floor.seamStrength",
+    "shadows": "VisualProfile.light.shadows",
+    "blockH": "Mesh.block.height",
+    "pickDur": "MotionProfile.Pickup.duration",
+    "pickLift": "MotionProfile.Pickup.lift"
+  },
+  "tolerance": { "total": 0.10, "peak": 0.15, "tPeak": 0.03, "end": 0.02 },
+  "meshBrief": { "block": { "height": 0.5, "cornerRadius": 0.14 } }
+}

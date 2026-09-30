@@ -193,5 +193,6 @@ Mọi sequence dài > 1s phải **skip được bằng tap**.
 2. `.html` visualiser (lưu ở `handoff/<story>/`).
 3. Preset mới đẩy vào `knowledge/motion/presets.json` (nếu dùng lại được).
 4. Số chốt nằm trong `MotionProfile` / `TimingProfile`, **không** trong code.
+5. Motion thuộc visual pass (có lab + direction): số đi qua `sections.motion` của direction → Import, và kiểm bằng `MotionParity` (`skills/visual-review/`, `workflow/visual-direction.md`). Không chỉnh tay field đã có trong `profileMap`.
 
 Trước khi đóng story feel: chạy `knowledge/feel/checklist.md`.

@@ -1,0 +1,32 @@
+{
+  "schema": "task/v1",
+  "id": "P2-VISUAL-VERIFY",
+  "packet": "handoff/template-v2/tasks/P2-VISUAL-VERIFY.md",
+  "implementers": ["codex", "claude"],
+  "requires": ["UNITY_MCP_SMOKE_PASS"],
+  "targetRef": null,
+  "dependsOn": [],
+  "writeSet": [
+    "Assets/_Core/4_Scripts/Editor/VisualDirection/**",
+    "handoff/template-v2/captures/**"
+  ],
+  "resources": ["unity"],
+  "context": "minimal",
+  "acceptance": [
+    { "kind": "auto", "text": "Unity compiles Template_001 with the new Editor code in Assets/_Core/4_Scripts/Editor/VisualDirection/: 0 console errors after refresh (handoff/template-v2/captures/P2-console.txt)." },
+    { "kind": "auto", "text": "All EditMode tests pass, including the 7 VisualDirectionTests (handoff/template-v2/captures/P2-tests.md)." },
+    { "kind": "auto", "text": "Menu Tools/Visual Direction/Dry Run (log drift) runs; with no handoff/visual/CURRENT it logs exactly one '[VisualDirection]' error saying CURRENT is missing, and nothing else (handoff/template-v2/captures/P2-dryrun.txt)." }
+  ],
+  "verify": {
+    "onFail": "implementer",
+    "steps": [
+      { "do": "console-clear" },
+      { "do": "refresh", "compile": true },
+      { "do": "console", "types": ["error"], "maxCount": 0, "out": "handoff/template-v2/captures/P2-console.txt" },
+      { "do": "tests", "mode": "EditMode", "out": "handoff/template-v2/captures/P2-tests.md" },
+      { "do": "console-clear" },
+      { "do": "menu", "path": "Tools/Visual Direction/Dry Run (log drift)" },
+      { "do": "console", "types": ["error"], "filter": "[VisualDirection]", "minCount": 1, "maxCount": 1, "out": "handoff/template-v2/captures/P2-dryrun.txt" }
+    ]
+  }
+}

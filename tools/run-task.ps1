@@ -432,13 +432,14 @@ if ($Implementer) { $candidates = @($Implementer) }
 foreach ($h in $candidates) {
     if (Test-HostLevels $h @($TaskObj.requires)) { $ImplHost = $h; break }
 }
-if (-not $ImplHost -and $Plan) { $ImplHost = $candidates[0] }
+# -VerifyOnly khong goi AI: khong can host nao PASS smoke/reviewer (repo moi chua chay doctor day du van verify duoc).
+if (-not $ImplHost -and ($Plan -or ($VerifyOnly -and $TaskObj.verify))) { $ImplHost = $candidates[0] }
 if (-not $ImplHost) {
     $why = "khong host nao trong [$($candidates -join ', ')] PASS [$(@($TaskObj.requires) -join ', ')]"
     Add-Intervention 'BLOCKED_TOOLCHAIN' $why
     Complete-Run 'BLOCKED_TOOLCHAIN' $why 0
 }
-if (-not $Plan -and -not (Test-HostLevels 'claude' @('INSTALLED', 'REVIEWER_READONLY'))) {
+if (-not $Plan -and -not $VerifyOnly -and -not (Test-HostLevels 'claude' @('INSTALLED', 'REVIEWER_READONLY'))) {
     Add-Intervention 'BLOCKED_TOOLCHAIN' 'reviewer claude chua PASS REVIEWER_READONLY'
     Complete-Run 'BLOCKED_TOOLCHAIN' 'reviewer claude chua PASS REVIEWER_READONLY' 0
 }
@@ -597,7 +598,8 @@ function Write-PlanPage([string]$OutPath) {
     Write-DashboardHtml $OutPath $data $false
 }
 
-$needConfirm = $Confirm -or ([bool]$Profiles.confirmBeforeDispatch -and -not $Yes)
+# -VerifyOnly khong ton token nen khong hoi (tru khi -Confirm).
+$needConfirm = $Confirm -or ([bool]$Profiles.confirmBeforeDispatch -and -not $Yes -and -not $VerifyOnly)
 if ($Plan -or $needConfirm) {
     Show-PlanConsole
     $planPage = Join-Path $RunDir 'plan.html'
