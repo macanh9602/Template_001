@@ -390,7 +390,9 @@ function Test-Blender {
         $src = if ($BlenderExe) { '-BlenderExe' } elseif ($cfg -and $cfg.blender) { 'Docs/asset-pipeline.json' } else { 'tu do (PATH / Program Files)' }
         Add-Check 'blender' 'BLENDER_CONFIGURED' 'PASS' "$exe ($src)"
     }
-    $ver = Invoke-Native $exe @('-b', '--factory-startup', '--python-expr', 'import bpy; print("AGENTPACK_VER", bpy.app.version_string)')
+    # Chi dung nhay DON trong --python-expr: Windows PowerShell 5.1 nuot nhay kep ben trong tham so cua native exe
+    # (bai hoc 2026-09-30: print("AGENTPACK_VER") thanh print(AGENTPACK_VER) -> NameError).
+    $ver = Invoke-Native $exe @('-b', '--factory-startup', '--python-expr', "import bpy; print('AGENTPACK_VER', bpy.app.version_string)")
     $version = if ($ver.Text -match 'AGENTPACK_VER (\S+)') { $Matches[1] } else { $null }
     if (-not $version) {
         Add-Check 'blender' 'BLENDER_HEADLESS' 'FAIL' "blender -b khong chay duoc: $(($ver.Text -replace '\s+', ' ').Trim() | ForEach-Object { $_.Substring(0, [Math]::Min(200, $_.Length)) })"
