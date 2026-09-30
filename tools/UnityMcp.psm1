@@ -260,15 +260,29 @@ function Invoke-VerifySteps {
                     $failed = @($job.data.result.results | Where-Object { $_.state -and $_.state -notmatch '(?i)pass' })
                     $md = "# Tests ($mode)`n`n- job: ``$jobId```n- status: $($job.data.status)`n- total: $($sum.total)`n- passed: $($sum.passed)`n- failed: $($sum.failed)`n- skipped: $($sum.skipped)`n- duration: $($sum.durationSeconds) s`n"
                     if ($failed.Count) { $md += "`n## Failures`n" + (($failed | ForEach-Object { "- $($_.fullName): $($_.message)" }) -join "`n") + "`n" }
+                    if (-not $sum) {
+                        # Job 'failed' khong co result (bai hoc 2026-09-30): ly do o data.error, test fail o progress.failures_so_far.
+                        $pr = $job.data.progress
+                        $md += "`n## Job khong co result`n- error: $($job.data.error)`n- progress: $($pr.completed)/$($pr.total)`n"
+                        if ($pr.current_test_full_name) { $md += "- dang chay: $($pr.current_test_full_name)`n" }
+                        if ($pr.blocked_reason) { $md += "- blocked: $($pr.blocked_reason)`n" }
+                        $sof = @($pr.failures_so_far | Where-Object { $_ })
+                        if ($sof.Count) { $md += "`n## Failures so far`n" + (($sof | ForEach-Object { "- $($_.full_name): $($_.message)" }) -join "`n") + "`n" }
+                        $md += "`n## Raw`n``````json`n" + ($job | ConvertTo-Json -Depth 8 -Compress) + "`n```````n"
+                        $sum = [pscustomobject]@{ total = $pr.total; passed = $null; failed = $sof.Count; skipped = $null; durationSeconds = $null }
+                    }
                     Write-VerifyFile $Root $s.out $md
                     $allPass = ($job.data.status -eq 'succeeded') -and ([int]$sum.failed -eq 0) -and ([int]$sum.total -gt 0)
                     # minTotal: so test it bat thuong = test assembly khong compile / sai project.
                     if ($null -ne $s.minTotal -and [int]$sum.total -lt [int]$s.minTotal) {
-                        $fails.Add("${label}: chi $($sum.total) test < minTotal $($s.minTotal) (sai project? assembly test khong compile?)")
+                        $fails.Add("${label}: chi $($sum.total) test < minTotal $($s.minTotal) (job $($job.data.status)$(if ($job.data.error) { ": $($job.data.error)" }))")
                         $lines.Add("${label}: FAIL $($sum.passed)/$($sum.total) < minTotal $($s.minTotal)")
                     }
                     elseif (($s.expectAllPass -eq $false) -or $allPass) { $lines.Add("${label}: OK $($sum.passed)/$($sum.total) ($($sum.durationSeconds) s)") }
-                    else { $fails.Add("${label}: $($sum.failed) fail / $($sum.total) (job $jobId)"); $lines.Add("${label}: FAIL $($sum.passed)/$($sum.total)") }
+                    else {
+                        $why = if ($job.data.error) { "; $($job.data.error)" } else { '' }
+                        $fails.Add("${label}: $($sum.failed) fail / $($sum.total) (job $jobId $($job.data.status)$why)"); $lines.Add("${label}: FAIL $($sum.passed)/$($sum.total)$why")
+                    }
                 }
                 'menu' {
                     $r = Invoke-UnityTool -Name 'execute_menu_item' -Arguments @{ menu_path = [string]$s.path } -TimeoutSec 300
