@@ -85,6 +85,8 @@ runner gọi **thẳng Unity MCP qua HTTP** (`tools/UnityMcp.psm1`, URL lấy t�
 }
 ```
 
+- Trước bước 1, script tự kiểm **đúng project**: đọc `mcpforunity://project/info` và so với repo. Có nhiều Editor cùng nối MCP ⇒ chọn instance trùng tên thư mục repo (`set_active_instance`). Sai ⇒ dừng ngay ở bước `[0] project`.
+- Bước `tests` nên có `"minTotal": <số test hiện có>`: ít test bất thường = assembly test không compile hoặc sai project.
 - Việc bất đồng bộ (capture trong Play Mode, job dài): bước `console` thêm `"waitSec": 180` + `minCount` ⇒ đọc lại mỗi 5 s tới khi đủ dòng hoặc hết giờ.
 - Kết luận PASS/FAIL nên dựa vào **log level** (tool log `Debug.Log` khi pass, `LogWarning` khi fail) và `minCount`/`maxCount`, không dựa vào text: `read_console` chỉ trả **dòng đầu** của log nhiều dòng. `expect` (regex) vẫn dùng được cho log một dòng; không khớp thì thử lại trên JSON thô.
 - Tất cả bước PASS ⇒ `DONE_PENDING_FEEL` ngay, **không implementer, không reviewer** (acceptance là số đo được).
@@ -216,3 +218,4 @@ Output: `handoff/_batch/<stamp>/<id>.out.txt` + `batch.json`.
 | Script verify: parity "không khớp `(fail 0)`" dù parity 38/38 PASS | `read_console` chỉ trả dòng đầu (`[MotionParity]`) của log nhiều dòng | kiểm bằng log level: `log` có ≥1 dòng (`minCount`), `warning/error` có 0 dòng |
 | Worker tự viết 4 `AudioSource` thay vì `AudioController` có sẵn; reviewer không bắt | không có danh sách hệ thống phải dùng lại để đối chiếu | `Docs/reuse-registry.json`: lint `REUSE_BYPASS` + runner quét dòng mới thêm mỗi round → `r<n>.reuse.md` cho reviewer |
 | `run-report.ps1` lỗi ngay trên máy Windows: `Split-Path ... empty string` | Windows PowerShell 5.1: `$PSScriptRoot` rỗng khi tính giá trị mặc định của `param()`; pwsh 7 (máy test) không bị | tính Root sau `param()` bằng `$MyInvocation.MyCommand.Path`; lint `PS1_PARAM_PSSCRIPTROOT` (FAIL) |
+| Verify của Demo chạy trên Template: 7 test thay vì 79, Dry Run `v0` | Unity mở Template_001 giữ cổng MCP 8080; script không kiểm đang nói chuyện với project nào | bước `[0] project` so `projectRoot` với repo + chọn instance; `tests.minTotal` |

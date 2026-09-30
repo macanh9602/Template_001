@@ -860,7 +860,8 @@ if ($TaskObj.verify -and $TaskObj.verify.steps) {
     }
     $vUsage = [ordered]@{ model = 'script'; tokens = 0; costUsd = 0; durationMs = $vsw.ElapsedMilliseconds }
     Write-Text "$vp.verify.md" ("# Script verify ($($TaskObj.id))`n`n" + ((@($vr.Lines) | ForEach-Object { "- $_" }) -join "`n") + "`n")
-    $changed = Remove-ExternalChanges (Get-ChangedSince $Snapshot $Ignore)
+    # @(...): ham tra mang rong -> PowerShell tra $null; @($null | Where) = 1 phan tu null -> 'ghi ngoai writeSet' rong.
+    $changed = @(Remove-ExternalChanges @(Get-ChangedSince $Snapshot $Ignore) | Where-Object { $_ })
     $script:LastChanged = @($changed)
     $outOfScope = @($changed | Where-Object { -not (Test-InWriteSet $_ @($TaskObj.writeSet)) })
     $evidence = @(@($TaskObj.verify.steps) | Where-Object { $_.out } | ForEach-Object { [string]$_.out })
@@ -930,7 +931,8 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     $summary = ''
     if ($msg -match '(?m)^\s*SUMMARY:\s*(.*)$') { $summary = $Matches[1].Trim() }
 
-    $changed = Remove-ExternalChanges (Get-ChangedSince $Snapshot $Ignore)
+    # @(...): ham tra mang rong -> PowerShell tra $null; @($null | Where) = 1 phan tu null -> 'ghi ngoai writeSet' rong.
+    $changed = @(Remove-ExternalChanges @(Get-ChangedSince $Snapshot $Ignore) | Where-Object { $_ })
     $script:LastChanged = @($changed)
     $outOfScope = @($changed | Where-Object { -not (Test-InWriteSet $_ @($TaskObj.writeSet)) })
     $tracked = @($changed | Where-Object { (Invoke-Native 'git' @('ls-files', '--error-unmatch', '--', $_) $null).Code -eq 0 })

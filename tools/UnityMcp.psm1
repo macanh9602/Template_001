@@ -149,10 +149,57 @@ function Write-VerifyFile([string]$Root, [string]$Rel, [string]$Text) {
     files     { exist:["path", ...] }
   Tra ve @{ Pass; Lines (bao cao); Failures }.
 #>
+# Doc mot MCP resource (JSON trong contents[0].text). Loi / khong ho tro -> $null (khong chan).
+function Read-McpResource([string]$Uri) {
+    try {
+        $id = $script:McpNextId++
+        $r = Send-McpMessage @{ jsonrpc = '2.0'; id = $id; method = 'resources/read'; params = @{ uri = $Uri } } 30
+        if ($r.error -or -not $r.result.contents) { return $null }
+        $text = (@($r.result.contents | ForEach-Object { $_.text }) -join "`n")
+        return ($text | ConvertFrom-Json)
+    } catch { return $null }
+}
+
+function ConvertTo-ComparablePath([string]$Path) {
+    return ($Path -replace '\\', '/').TrimEnd('/').ToLowerInvariant()
+}
+
+# Chot chan: script phai noi chuyen voi Unity dang mo DUNG repo nay.
+# Bai hoc 2026-09-30: Unity mo Template_001 giu cong 8080, verify cua Demo chay tren Template (7 test thay vi 79).
+# Nhieu Editor cung noi vao server: chon instance trung ten thu muc repo (set_active_instance).
+function Assert-UnityProject([string]$Root) {
+    $name = Split-Path -Leaf ([System.IO.Path]::GetFullPath($Root).TrimEnd('\', '/'))
+    $inst = Read-McpResource 'mcpforunity://instances'
+    $list = if ($inst) { @($inst.instances) } else { @() }
+    if ($list.Count -gt 1) {
+        $match = @($list | Where-Object { [string]$_.name -eq $name })
+        if ($match.Count -eq 1) {
+            $null = Invoke-UnityTool -Name 'set_active_instance' -Arguments @{ instance = [string]$match[0].id } -RetryForSec 30
+        } else {
+            return "co $($list.Count) Unity dang noi MCP ($((@($list | ForEach-Object { $_.id })) -join ', ')), khong chon duoc instance ten '$name'"
+        }
+    }
+    $info = Read-McpResource 'mcpforunity://project/info'
+    $projRoot = if ($info -and $info.data) { [string]$info.data.projectRoot } elseif ($info) { [string]$info.projectRoot } else { '' }
+    if (-not $projRoot) { return $null }  # server cu khong co resource nay: bo qua, cac buoc sau van co minTotal
+    $want = ConvertTo-ComparablePath ([System.IO.Path]::GetFullPath($Root))
+    if ((ConvertTo-ComparablePath $projRoot) -ne $want) {
+        return "Unity MCP dang noi voi project '$projRoot', khong phai repo nay ($Root). Mo dung project trong Unity (hoac tat Editor kia) roi chay lai."
+    }
+    return $null
+}
+
 function Invoke-VerifySteps {
     param([Parameter(Mandatory = $true)]$Steps, [Parameter(Mandatory = $true)][string]$Root, [int]$TestTimeoutMin = 25)
     $lines = New-Object System.Collections.Generic.List[string]
     $fails = New-Object System.Collections.Generic.List[string]
+    $wrong = Assert-UnityProject $Root
+    if ($wrong) {
+        $lines.Add("[0] project: SAI $wrong")
+        $fails.Add("[0] project: $wrong")
+        return [pscustomobject]@{ Pass = $false; Lines = @($lines); Failures = @($fails) }
+    }
+    $lines.Add('[0] project: OK')
     $i = 0
     foreach ($s in @($Steps)) {
         $i++
@@ -215,7 +262,12 @@ function Invoke-VerifySteps {
                     if ($failed.Count) { $md += "`n## Failures`n" + (($failed | ForEach-Object { "- $($_.fullName): $($_.message)" }) -join "`n") + "`n" }
                     Write-VerifyFile $Root $s.out $md
                     $allPass = ($job.data.status -eq 'succeeded') -and ([int]$sum.failed -eq 0) -and ([int]$sum.total -gt 0)
-                    if (($s.expectAllPass -eq $false) -or $allPass) { $lines.Add("${label}: OK $($sum.passed)/$($sum.total) ($($sum.durationSeconds) s)") }
+                    # minTotal: so test it bat thuong = test assembly khong compile / sai project.
+                    if ($null -ne $s.minTotal -and [int]$sum.total -lt [int]$s.minTotal) {
+                        $fails.Add("${label}: chi $($sum.total) test < minTotal $($s.minTotal) (sai project? assembly test khong compile?)")
+                        $lines.Add("${label}: FAIL $($sum.passed)/$($sum.total) < minTotal $($s.minTotal)")
+                    }
+                    elseif (($s.expectAllPass -eq $false) -or $allPass) { $lines.Add("${label}: OK $($sum.passed)/$($sum.total) ($($sum.durationSeconds) s)") }
                     else { $fails.Add("${label}: $($sum.failed) fail / $($sum.total) (job $jobId)"); $lines.Add("${label}: FAIL $($sum.passed)/$($sum.total)") }
                 }
                 'menu' {
@@ -238,4 +290,4 @@ function Invoke-VerifySteps {
     return [pscustomobject]@{ Pass = ($fails.Count -eq 0); Lines = @($lines); Failures = @($fails) }
 }
 
-Export-ModuleMember -Function Connect-UnityMcp, Invoke-UnityTool, Invoke-VerifySteps, ConvertFrom-McpBody
+Export-ModuleMember -Function Connect-UnityMcp, Invoke-UnityTool, Invoke-VerifySteps, ConvertFrom-McpBody, Assert-UnityProject
