@@ -350,6 +350,9 @@ function Test-Blender {
     if (Test-Path $cfgPath) { try { $cfg = [System.IO.File]::ReadAllText($cfgPath).TrimStart([char]0xFEFF) | ConvertFrom-Json } catch { } }
     $exe = if ($BlenderExe) { $BlenderExe } elseif ($cfg -and $cfg.blender) { [string]$cfg.blender } else { $null }
     if (-not $exe -and -not $Blender) { return }  # module tat: project khong dung Blender
+    # Path da khai co the la cua may khac (Docs/asset-pipeline.json bi chep/commit tu may nha): van tu do.
+    $declared = $exe
+    if ($exe -and -not (Test-Path $exe)) { $exe = $null }
     if (-not $exe) { $exe = Find-Exe 'blender' }
     if (-not $exe) {
         # Cai dat mac dinh tren Windows: lay ban moi nhat trong Program Files\Blender Foundation\Blender X.Y
@@ -363,12 +366,18 @@ function Test-Blender {
         }
     }
     if (-not $exe -or -not (Test-Path $exe)) {
-        Add-Check 'blender' 'BLENDER_CONFIGURED' 'FAIL' "khong thay blender ($(if ($exe) { $exe } else { 'chua khai' }))"
+        $what = if ($declared) { "path da khai khong co tren may nay: $declared; cung khong thay trong PATH / Program Files" } else { 'chua khai; khong thay trong PATH / Program Files' }
+        Add-Check 'blender' 'BLENDER_CONFIGURED' 'FAIL' "khong thay blender ($what)"
         $ManualSteps.Add("Blender: copy Docs/asset-pipeline.example.json -> Docs/asset-pipeline.json, dien 'blender' = duong dan blender.exe cua may (hoac doctor -BlenderExe <path>).")
         return
     }
-    $src = if ($BlenderExe) { '-BlenderExe' } elseif ($cfg -and $cfg.blender) { 'Docs/asset-pipeline.json' } else { 'tu do (PATH / Program Files)' }
-    Add-Check 'blender' 'BLENDER_CONFIGURED' 'PASS' "$exe ($src)"
+    if ($declared -and $declared -ne $exe) {
+        Add-Check 'blender' 'BLENDER_CONFIGURED' 'WARN' "$exe (tu do; path da khai khong co tren may nay: $declared)"
+        $ManualSteps.Add("Blender: sua 'blender' trong Docs/asset-pipeline.json thanh $exe (file nay la cua tung may, khong commit).")
+    } else {
+        $src = if ($BlenderExe) { '-BlenderExe' } elseif ($cfg -and $cfg.blender) { 'Docs/asset-pipeline.json' } else { 'tu do (PATH / Program Files)' }
+        Add-Check 'blender' 'BLENDER_CONFIGURED' 'PASS' "$exe ($src)"
+    }
     $ver = Invoke-Native $exe @('-b', '--factory-startup', '--python-expr', 'import bpy; print("AGENTPACK_VER", bpy.app.version_string)')
     $version = if ($ver.Text -match 'AGENTPACK_VER (\S+)') { $Matches[1] } else { $null }
     if (-not $version) {
