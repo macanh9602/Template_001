@@ -17,6 +17,7 @@
     PRODUCT_NAME    Project that van mang productName cua Template.
     GITIGNORE       Thieu ignore cho file machine-local cua toolchain.
     PS1_PARAM_PSSCRIPTROOT  Gia tri mac dinh cua param dung $PSScriptRoot (rong tren Windows PowerShell 5.1).
+    SKILL_SYNC      Ban sao skill cua host (.claude/skills) lech skills/ (canonical).
     REUSE_BYPASS    Code khop mau 'avoid' trong Docs/reuse-registry.json (viet lai he thong co san). WARN.
 
   FAIL -> exit 1. WARN khong chan.
@@ -177,6 +178,16 @@ $giText = if (Test-Path $gi) { Get-Content $gi -Raw } else { '' }
 foreach ($need in @('/.toolchain/', '/.toolchain.local.json', '/Docs/asset-pipeline.json', '/.worktrees/')) {
     if ($giText -notmatch [regex]::Escape($need)) {
         Add-Finding 'GITIGNORE' 'WARN' '.gitignore' "thieu '$need' (file machine-local)"
+    }
+}
+
+# ---------------------------------------------------------------- SKILL_SYNC
+
+$syncScript = Join-Path $PSScriptRoot 'sync-skills.ps1'
+if ((Test-Path (Join-Path $Root '.claude/skills')) -and (Test-Path $syncScript)) {
+    $syncOut = @(& $syncScript -Check -Root $Root *>&1 | ForEach-Object { [string]$_ })
+    foreach ($l in @($syncOut | Where-Object { $_ -like 'LECH *' })) {
+        Add-Finding 'SKILL_SYNC' 'WARN' '.claude/skills' ($l.Substring(5) + ' -> chay tools/sync-skills.ps1')
     }
 }
 

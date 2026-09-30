@@ -1,7 +1,7 @@
 # Skills — bảng tra
 
 > `skills/` là **canonical source of truth dùng chung mọi agent**. Không maintain một bản Codex và một bản Claude riêng.
-> `AGENTS.md` / `CLAUDE.md` chỉ làm adapter + routing; nếu một host cần native skill directory thì sync/symlink/generate từ đây, không sửa generated copy.
+> `AGENTS.md` / `CLAUDE.md` chỉ làm adapter + routing; host cần native skill directory thì **sinh từ đây** bằng `tools/sync-skills.ps1` (Claude Code: `.claude/skills/`, có file `.generated` + hash), không sửa generated copy — lint `SKILL_SYNC` bắt bản sao lệch. Codex đọc thẳng file này qua `AGENTS.md`.
 > Agent đọc file này để biết **load skill nào**, không load hết. Mỗi skill là một thư mục: `SKILL.md` với frontmatter `name` + `description`; `description` là trigger metadata cho router/host hỗ trợ skill discovery. `refs/` giữ phần dài, chỉ load khi task chạm đúng phần đó.
 
 ## Luôn áp dụng (không phải skill — là hằng số)
