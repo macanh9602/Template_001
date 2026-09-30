@@ -365,8 +365,20 @@ function Test-Blender {
             if ($cand.Count) { $exe = Join-Path $cand[0].FullName 'blender.exe'; break }
         }
     }
+    if (-not $exe -and $env:OS -eq 'Windows_NT') {
+        # Cai ngoai Program Files (vd <o>:\...\Blender*): quet thu muc Blender* o goc moi o dia, sau toi 1 cap.
+        $found = @()
+        foreach ($drv in @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue | Where-Object { $_.Root -match '^[A-Za-z]:\\$' })) {
+            foreach ($d in @(Get-ChildItem -LiteralPath $drv.Root -Directory -Filter 'Blender*' -ErrorAction SilentlyContinue)) {
+                $found += @(Get-Item -LiteralPath (Join-Path $d.FullName 'blender.exe') -ErrorAction SilentlyContinue)
+                $found += @(Get-ChildItem -LiteralPath $d.FullName -Directory -ErrorAction SilentlyContinue | ForEach-Object { Get-Item -LiteralPath (Join-Path $_.FullName 'blender.exe') -ErrorAction SilentlyContinue })
+            }
+        }
+        $found = @($found | Where-Object { $_ } | Sort-Object { $_.VersionInfo.FileVersion } -Descending)
+        if ($found.Count) { $exe = $found[0].FullName }
+    }
     if (-not $exe -or -not (Test-Path $exe)) {
-        $what = if ($declared) { "path da khai khong co tren may nay: $declared; cung khong thay trong PATH / Program Files" } else { 'chua khai; khong thay trong PATH / Program Files' }
+        $what = if ($declared) { "path da khai khong co tren may nay: $declared; cung khong thay trong PATH / Program Files / <o dia>:\Blender*" } else { 'chua khai; khong thay trong PATH / Program Files / <o dia>:\Blender*' }
         Add-Check 'blender' 'BLENDER_CONFIGURED' 'FAIL' "khong thay blender ($what)"
         $ManualSteps.Add("Blender: copy Docs/asset-pipeline.example.json -> Docs/asset-pipeline.json, dien 'blender' = duong dan blender.exe cua may (hoac doctor -BlenderExe <path>).")
         return
