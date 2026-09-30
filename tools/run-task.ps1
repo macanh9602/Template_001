@@ -35,7 +35,9 @@ param(
     [int]$CapabilityMaxAgeMinutes = 480,
     [ValidateSet('read-only', 'workspace-write', 'danger-full-access')][string]$CodexSandbox = 'workspace-write',
     # Commit changedFiles + run dir khi task PASS. Mac dinh tat: runner chi in lenh git de nguoi chay tu commit.
-    [switch]$Commit
+    [switch]$Commit,
+    # Khong tu chay doctor khi capabilities thieu/qua han.
+    [switch]$NoAutoDoctor
 )
 
 $ErrorActionPreference = 'Stop'
@@ -228,16 +230,27 @@ $ImplHost = $null
 $LastChanged = @()
 
 $capPath = Join-Path $ProjectRoot '.toolchain/capabilities.json'
-if (-not (Test-Path $capPath)) {
-    Add-Intervention 'BLOCKED_TOOLCHAIN' 'chua co .toolchain/capabilities.json'
-    Complete-Run 'BLOCKED_TOOLCHAIN' 'chay tools/doctor.ps1 truoc' 0
+function Get-CapabilityAgeMinutes {
+    if (-not (Test-Path $capPath)) { return [double]::MaxValue }
+    try { return ((Get-Date) - [DateTime]::Parse((Read-Json $capPath).generatedAt)).TotalMinutes } catch { return [double]::MaxValue }
+}
+# Capabilities thieu/qua han: tu chay doctor (deterministic) thay vi bat nguoi chay. Pilot run 4 bi chan chi vi qua dem.
+if ((Get-CapabilityAgeMinutes) -gt $CapabilityMaxAgeMinutes) {
+    $doctor = Join-Path $PSScriptRoot 'doctor.ps1'
+    if (-not $NoAutoDoctor -and (Test-Path $doctor)) {
+        Write-Host '[runner] capabilities thieu/qua han -> chay tools/doctor.ps1 ...'
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try { & $doctor | Out-Host } finally { $ErrorActionPreference = $prevEap }
+    }
+}
+$age = Get-CapabilityAgeMinutes
+if ($age -gt $CapabilityMaxAgeMinutes) {
+    $why = if ($age -eq [double]::MaxValue) { 'chua co .toolchain/capabilities.json' } else { "capabilities cu {0:N0} phut" -f $age }
+    Add-Intervention 'BLOCKED_TOOLCHAIN' $why
+    Complete-Run 'BLOCKED_TOOLCHAIN' "$why; chay tools/doctor.ps1" 0
 }
 $Cap = Read-Json $capPath
-$age = ((Get-Date) - [DateTime]::Parse($Cap.generatedAt)).TotalMinutes
-if ($age -gt $CapabilityMaxAgeMinutes) {
-    Add-Intervention 'BLOCKED_TOOLCHAIN' ("capabilities cu {0:N0} phut" -f $age)
-    Complete-Run 'BLOCKED_TOOLCHAIN' 'capabilities qua cu, chay lai tools/doctor.ps1' 0
-}
 
 function Test-HostLevels([string]$HostName, [string[]]$Levels) {
     foreach ($lvl in $Levels) {
