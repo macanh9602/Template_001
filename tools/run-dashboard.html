@@ -79,7 +79,7 @@ const mins = (ms) => ms == null ? '—' : ms < 60000 ? Math.round(ms / 1000) + '
 const STATUS = {
   DONE_PENDING_FEEL: ['s-ok', 'Đạt – chờ feel'], RUNNING: ['s-run', 'Đang chạy'], PLANNED: ['s-run', 'Chờ duyệt'],
   'ESCALATE:LOOP_CAP': ['s-warn', 'Quá số vòng sửa'], BLOCKED_ON_TARGET: ['s-warn', 'Cần chốt lại target'],
-  BLOCKED: ['s-bad', 'Bị chặn'], BLOCKED_TOOLCHAIN: ['s-bad', 'Thiếu công cụ'], CANCELLED: ['s-warn', 'Đã huỷ'],
+  BLOCKED: ['s-bad', 'Bị chặn'], BLOCKED_QUOTA: ['s-warn', 'Hết quota'], BLOCKED_TOOLCHAIN: ['s-bad', 'Thiếu công cụ'], CANCELLED: ['s-warn', 'Đã huỷ'],
 };
 const pill = (s) => { const [c, l] = STATUS[s] || ['s-warn', s || '?']; return `<span class="pill ${c}">${esc(l)}</span>`; };
 // Model/effort hien thi: gia tri + nguon (profile / config.toml / settings.json / account = mac dinh tai khoan).

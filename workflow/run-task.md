@@ -108,6 +108,7 @@ Usage lấy từ output thật: Claude `--output-format json` (token, `total_cos
 | `BLOCKED_ON_TARGET` | reviewer `TARGET_RECONSIDER` **có** `implHypothesesRuledOut` | PO + director |
 | `BLOCKED` | implementer/reviewer chặn, ghi ngoài writeSet, JSON review hỏng, hoặc TARGET_RECONSIDER thiếu evidence | đọc `status.json` |
 | `BLOCKED_TOOLCHAIN` | không host nào đủ `requires` | doctor in bước sửa |
+| `BLOCKED_QUOTA` | host hết quota/rate limit (vd ChatGPT "usage limit … try again at …"); reviewer không được gọi | chờ tới giờ ghi trong lý do rồi chạy lại, hoặc `-Implementer claude` |
 
 Mọi lần cần người ⇒ một dòng trong `handoff/<wp>/interventions.jsonl`. Đó là KPI:
 **số lần PO phải can thiệp từ Goal tới playable/final review**.
@@ -137,3 +138,5 @@ Nhiều task được ở `EXECUTABLE` cùng lúc (`handoff/ROADMAP.md`). Chạy
 | Runner chặn chỉ vì qua đêm | capabilities quá hạn | runner tự chạy doctor |
 | Doctor dừng ở máy mới | installer đặt `ErrorActionPreference=Stop`; stderr lẫn JSON | installer process riêng, tách JSON |
 | Script hỏng trên PS 5.1 | `.ps1` UTF-8 không BOM có tiếng Việt | `tools/*.ps1` chỉ ASCII (lint `PS1_NON_ASCII`) |
+| Runner tưởng implementer đã xong khi nó hết quota giữa chừng | không có tin nhắn cuối → runner đọc log thô, trong đó có dòng `RESULT:` của prompt mẫu | chỉ tin tin nhắn cuối (`-o`); chặn dòng mẫu; trạng thái `BLOCKED_QUOTA` |
+| Codex mất shell (`Access is denied`) | sandbox Windows không spawn được `pwsh` bản Microsoft Store | doctor WARN `SANDBOX_SHELL`: cài PowerShell 7 bản MSI hoặc `-CodexSandbox danger-full-access` |

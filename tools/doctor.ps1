@@ -299,6 +299,14 @@ function Test-CodexHost {
         return
     }
 
+    # Sandbox workspace-write cua Codex tren Windows khong spawn duoc pwsh cai tu Microsoft Store (WindowsApps):
+    # 'CreateProcessAsUserW failed: 5 (Access is denied)' -> Codex mat shell giua task (pilot may nha).
+    $pw = Get-Command pwsh -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($pw -and $pw.Source -match 'WindowsApps') {
+        Add-Check 'codex' 'SANDBOX_SHELL' 'WARN' "pwsh tu Microsoft Store ($($pw.Source)): sandbox Codex khong chay duoc"
+        $ManualSteps.Add('Codex: cai PowerShell 7 ban MSI (winget install --id Microsoft.PowerShell --source winget) roi go ban Store; hoac chay run-task voi -CodexSandbox danger-full-access.')
+    }
+
     $list = Invoke-Native $exe @('mcp', 'list')
     if ($list.Text -match '(?i)unity') {
         if ($unityEntry) { $HostInfo['codex'].unityMcpServer = $unityEntry.name }

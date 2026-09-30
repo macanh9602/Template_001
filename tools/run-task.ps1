@@ -693,7 +693,7 @@ function Invoke-Implementer([string]$PromptPath, [string]$LogPath, [string]$Last
         if ($ImplMcp) { $tools += "mcp__$ImplMcp" }
         $r = Invoke-Native $ImplExe (@('-p', $instruction, '--output-format', 'json', '--permission-mode', 'acceptEdits') + (Get-ClaudeExecArgs $cfg) + @('--allowedTools') + $tools) $LogPath
         $obj = Get-JsonObjectFromText $r.Text
-        $text = if ($obj -and $obj.result) { [string]$obj.result } else { $r.Text }
+        $text = if ($obj -and $obj.result) { [string]$obj.result } else { '' }
         $usage = Get-ClaudeUsage $r.Text
     } else {
         # -c value khong bao nhay: PS 5.1 lam hong dau nhay trong tham so native; codex doc gia tri tran la chuoi.
@@ -701,13 +701,25 @@ function Invoke-Implementer([string]$PromptPath, [string]$LogPath, [string]$Last
         if ($cfg.model) { $cx += @('-m', [string]$cfg.model) }
         if ($cfg.effort) { $cx += @('-c', "model_reasoning_effort=$($cfg.effort)") }
         if ($cfg.serviceTier) { $cx += @('-c', "service_tier=$($cfg.serviceTier)") }
+        if (Test-Path $LastMsgPath) { Remove-Item -LiteralPath $LastMsgPath -Force }
         $r = Invoke-Native $ImplExe ($cx + @('-o', $LastMsgPath, $instruction)) $LogPath
-        $text = if (Test-Path $LastMsgPath) { [System.IO.File]::ReadAllText($LastMsgPath) } else { $r.Text }
+        # Chi tin tin nhan cuoi (-o). Log tho co ca noi dung prompt Codex da doc (co dong RESULT: mau);
+        # pilot economy: Codex het quota giua chung, runner doc nham 'RESULT: IMPLEMENTED' tu log.
+        $text = if (Test-Path $LastMsgPath) { [System.IO.File]::ReadAllText($LastMsgPath) } else { '' }
         $usage = Get-CodexUsage $r.Text $sw.ElapsedMilliseconds
     }
     if ($usage -and $null -eq $usage.durationMs) { $usage.durationMs = $sw.ElapsedMilliseconds }
     Write-Text $LastMsgPath $text
     return [pscustomobject]@{ Text = $text; Usage = $usage; Code = $r.Code; Raw = $r.Text }
+}
+
+# Het quota/rate limit cua host: khong phai loi task; bao ro thoi diem thu lai, khong goi reviewer.
+function Get-QuotaHint([string]$Raw) {
+    $m = [regex]::Match($Raw, "(?i)(you've hit your usage limit|usage limit|rate limit|quota exceeded|insufficient_quota)[^\r\n]*")
+    if (-not $m.Success) { return $null }
+    $t = $m.Value
+    if ($t -match '(?i)try again (at|in) ([^.\r\n]+)') { return "het quota host, thu lai $($Matches[1]) $($Matches[2].Trim())" }
+    return "het quota host: $($t.Substring(0, [Math]::Min(160, $t.Length)))"
 }
 
 # Implementer ket thuc ma khong co RESULT: thuong la host loi ngay (het quota, mang, sandbox, auth).
@@ -747,6 +759,11 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     $status = 'BLOCKED'; $blocker = "implementer khong in dong RESULT: ($(Get-HostFailureHint $impl))"
     if ($msg -match '(?m)^\s*RESULT:\s*IMPLEMENTED\b') { $status = 'IMPLEMENTED'; $blocker = $null }
     elseif ($msg -match '(?m)^\s*RESULT:\s*BLOCKED:?\s*(.*)$') { $blocker = $Matches[1].Trim() }
+    # Dong mau cua prompt (<...>) khong phai ket qua that.
+    if ($status -eq 'IMPLEMENTED' -and $msg -match '(?m)^\s*SUMMARY:\s*<one line') {
+        $status = 'BLOCKED'; $blocker = 'implementer tra ve dong mau cua prompt, khong phai ket qua'
+    }
+    $quota = Get-QuotaHint $impl.Raw
     $evidence = @()
     if ($msg -match '(?m)^\s*EVIDENCE:\s*(.*)$') { $evidence = @($Matches[1] -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
     $summary = ''
@@ -774,6 +791,10 @@ for ($round = 1; $round -le $maxRounds; $round++) {
     Stop-Step $implStep $status $null $impl.Usage
     Write-Host "[$($TaskObj.id)] round $round - $status, $($changed.Count) file doi$(if ($blocker) { ", $blocker" })"
 
+    if ($quota -and $status -ne 'IMPLEMENTED') {
+        Add-Intervention 'BLOCKED_QUOTA' $quota
+        Complete-Run 'BLOCKED_QUOTA' $quota $round
+    }
     if ($status -eq 'BLOCKED') {
         Add-Intervention 'BLOCKED' $blocker
         Complete-Run 'BLOCKED' $blocker $round
