@@ -1,0 +1,12 @@
+{
+  "_note": "Copy thành config/run-profiles.local.json (gitignored) trên từng máy. Chỉ ghi khoá muốn đổi; phần còn lại lấy từ run-profiles.json. Tên model phải là model tài khoản máy này dùng được (xem: chạy codex rồi gõ /model).",
+  "profiles": {
+    "economy": {
+      "implementer": { "codex": { "model": null } },
+      "budget": { "maxTokensPerRun": 200000 }
+    },
+    "balanced": {
+      "implementer": { "codex": { "model": null } }
+    }
+  }
+}
