@@ -26,10 +26,13 @@ param(
     [Parameter(ParameterSetName = 'Migrate', Mandatory = $true)][string]$Migrate,
     [Parameter(ParameterSetName = 'Migrate')][string]$Out,
     [Parameter(ParameterSetName = 'Status')][switch]$Status,
-    [string]$Root = (Split-Path -Parent $PSScriptRoot)
+    [string]$Root
 )
 
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1: $PSScriptRoot rong trong gia tri mac dinh cua param -> tinh o day.
+if (-not $Root) { $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
+$Root = [System.IO.Path]::GetFullPath($Root)
 $Schema = 'visual-direction/v1'
 $VisualDir = Join-Path $Root 'handoff/visual'
 $PointerPath = Join-Path $VisualDir 'CURRENT'

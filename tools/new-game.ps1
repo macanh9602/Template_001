@@ -24,10 +24,13 @@ param(
     [string]$Company,
     [switch]$DryRun,
     [switch]$Doctor,
-    [string]$Root = (Split-Path -Parent $PSScriptRoot)
+    [string]$Root
 )
 
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1: $PSScriptRoot rong trong gia tri mac dinh cua param -> tinh o day.
+if (-not $Root) { $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
+$Root = [System.IO.Path]::GetFullPath($Root)
 
 if ($Namespace -notmatch '^[A-Z][A-Za-z0-9]*(\.[A-Z][A-Za-z0-9]*)*$') { throw "Namespace '$Namespace' phai PascalCase (vd BlockHome)" }
 if ($BundleId -notmatch '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$') { throw "BundleId '$BundleId' phai dang com.company.game (chu thuong)" }

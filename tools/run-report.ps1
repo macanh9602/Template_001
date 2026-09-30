@@ -21,10 +21,13 @@ param(
     [string]$OutDir,
     [switch]$NoOpen,
     [switch]$NoLint,
-    [string]$Root = (Split-Path -Parent $PSScriptRoot)
+    [string]$Root
 )
 
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1: $PSScriptRoot rong trong gia tri mac dinh cua param -> tinh o day.
+if (-not $Root) { $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
+$Root = [System.IO.Path]::GetFullPath($Root)
 if (-not $OutDir) { $OutDir = Join-Path $Root 'handoff/_reports' }
 
 function Write-Utf8NoBom([string]$Path, [string]$Text) {

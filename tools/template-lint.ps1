@@ -16,6 +16,7 @@
     PKG_FLOATING    Git package trong Packages/manifest.json troi theo branch (#main, khong #).
     PRODUCT_NAME    Project that van mang productName cua Template.
     GITIGNORE       Thieu ignore cho file machine-local cua toolchain.
+    PS1_PARAM_PSSCRIPTROOT  Gia tri mac dinh cua param dung $PSScriptRoot (rong tren Windows PowerShell 5.1).
     REUSE_BYPASS    Code khop mau 'avoid' trong Docs/reuse-registry.json (viet lai he thong co san). WARN.
 
   FAIL -> exit 1. WARN khong chan.
@@ -113,6 +114,10 @@ foreach ($f in $Tracked) {
         $line = $lines[$i]
         if ($f -match '\.md$' -and $line -match '^\s*```') { $inFence = -not $inFence; continue }
 
+        # Windows PowerShell 5.1: $PSScriptRoot rong khi tinh gia tri mac dinh cua param (pwsh 7 thi khong) -> script hong chi tren may Windows.
+        if ($f -match '\.ps1$' -and $line -match '^\s*(\[[^\]]+\]\s*)*\$\w+\s*=.*\$PSScriptRoot' -and $line -match '^\s*\[') {
+            Add-Finding 'PS1_PARAM_PSSCRIPTROOT' 'FAIL' "$f`:$($i + 1)" 'param mac dinh dung $PSScriptRoot (rong tren PS 5.1); tinh sau param() bang $MyInvocation.MyCommand.Path'
+        }
         foreach ($m in [regex]::Matches($line, $absPattern)) {
             if ($m.Value -match '^[A-Za-z]:[\\/](\.\.\.|$)') { continue }  # vi du dang C:\... trong tai lieu
             Add-Finding 'ABS_PATH' 'FAIL' "$f`:$($i + 1)" "path may cu the '$($m.Value)'; dua vao .toolchain.local.json / file *.local gitignored"
