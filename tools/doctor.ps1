@@ -361,6 +361,8 @@ $capabilities = [ordered]@{
     machine     = $env:COMPUTERNAME
     projectRoot = $ProjectRoot
     hosts       = $HostInfo
+    # Runner goi thang Unity MCP qua HTTP cho task xac minh bang script (khong ton token).
+    unity       = [ordered]@{ mcpUrl = $(if ($unityEntry -and $unityEntry.url) { $unityEntry.url } else { $null }) }
     checks      = $Results
 }
 Write-Utf8NoBom $outPath ($capabilities | ConvertTo-Json -Depth 5)

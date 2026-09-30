@@ -63,6 +63,33 @@ git push
 Output: `handoff/<wp>/runs/<id>/<timestamp>/` — prompt, `*.out.txt` (không dùng `.log`: `.gitignore` của Unity bỏ
 qua), `rN.diff`, `rN.result.json`, `rN.review.json`, `status.json`, `unity-editor-log-tail.txt`.
 
+## 3a. Xác minh bằng script (0 token)
+
+Task chỉ gồm thao tác máy móc (compile, đếm lỗi console, chạy test, chạy menu, kiểm file) thì thêm khối `verify`:
+runner gọi **thẳng Unity MCP qua HTTP** (`tools/UnityMcp.psm1`, URL lấy từ doctor), không gọi AI nào.
+
+```json
+"verify": {
+  "onFail": "implementer",
+  "steps": [
+    { "do": "console-clear" },
+    { "do": "refresh", "compile": true },
+    { "do": "console", "types": ["error"], "maxCount": 0, "out": "handoff/<wp>/captures/console.txt" },
+    { "do": "tests", "mode": "EditMode", "out": "handoff/<wp>/captures/tests.md" },
+    { "do": "console-clear" },
+    { "do": "menu", "path": "Game/Tool/Menu Item" },
+    { "do": "console", "types": ["log", "warning"], "filter": "CSV:", "expect": "\\(fail 0\\)", "out": "handoff/<wp>/captures/parity.txt" },
+    { "do": "files", "exist": ["handoff/<wp>/captures/a.csv"] }
+  ]
+}
+```
+
+- Tất cả bước PASS ⇒ `DONE_PENDING_FEEL` ngay, **không implementer, không reviewer** (acceptance là số đo được).
+- Có bước FAIL ⇒ `onFail: implementer` (mặc định): giao implementer với báo cáo `r0.verify.md`; `stop` ⇒ `BLOCKED`.
+- Unity không trả lời khi đang compile/chạy test ⇒ mỗi lệnh tự thử lại (tới 10–15 phút); test job poll tới khi xong.
+- Tool dùng (MCP for Unity v10): `refresh_unity`, `read_console`, `run_tests`, `get_test_job`, `execute_menu_item`.
+- Pilot WP004-B-VERIFY: cùng việc này bằng agent tốn ~110k token Codex + ~$0.20 Claude.
+
 ## 3b. Duyệt trước khi giao + xem tiến độ
 
 **Profile** (`config/run-profiles.json`, sửa được theo project):

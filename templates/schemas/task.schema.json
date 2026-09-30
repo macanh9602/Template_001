@@ -118,6 +118,39 @@
     "profile": {
       "type": "string",
       "description": "Profile mac dinh cua task trong config/run-profiles.json (ghi de bang -Profile)."
+    },
+    "verify": {
+      "type": "object",
+      "description": "Buoc xac minh bang script qua Unity MCP (0 token), chay truoc implementer. PASS => DONE khong can AI.",
+      "properties": {
+        "onFail": {
+          "enum": [
+            "implementer",
+            "stop"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "do"
+            ],
+            "properties": {
+              "do": {
+                "enum": [
+                  "console-clear",
+                  "refresh",
+                  "console",
+                  "tests",
+                  "menu",
+                  "files"
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

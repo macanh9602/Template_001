@@ -134,11 +134,11 @@ function barsBlock(stats, profiles, current) {
 function timeline(run) {
   if (!run.steps?.length) return '<div class="sub" style="margin-top:8px">Không có chi tiết từng bước (run cũ).</div>';
   return `<div class="tl">${run.steps.map(s => {
-    const who = s.role === 'implementer' ? `🛠 ${esc(s.host)}${s.resumed ? ' ↻' : ''}` : `🔎 ${esc(s.host)}`;
+    const who = s.role === 'implementer' ? `🛠 ${esc(s.host)}${s.resumed ? ' ↻' : ''}` : s.role === 'script' ? '⚙ script (0 token)' : `🔎 ${esc(s.host)}`;
     const st = s.state === 'running' ? 'running' : (s.verdict || s.outcome || '');
     const detail = s.state === 'running' ? 'đang chạy…' : esc(s.verdict || s.outcome || 'xong');
     const u = s.usage || {};
-    return `<div class="step ${esc(st)}"><b>V${s.round} · ${who}</b>${detail}<div class="muted">${u.tokens ? num(u.tokens) + ' tok ' : ''}${u.costUsd != null ? usd(u.costUsd) + ' ' : ''}${u.durationMs ? mins(u.durationMs) : ''}</div></div>`;
+    return `<div class="step ${esc(st)}"><b>${s.round === 0 ? 'Xác minh' : 'V' + s.round} · ${who}</b>${detail}<div class="muted">${u.tokens ? num(u.tokens) + ' tok ' : ''}${u.costUsd != null ? usd(u.costUsd) + ' ' : ''}${u.durationMs ? mins(u.durationMs) : ''}</div></div>`;
   }).join('<span class="arrow">›</span>')}</div>`;
 }
 

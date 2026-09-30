@@ -566,6 +566,7 @@ function Show-PlanConsole {
     Write-Host ("  reviewer    : claude  model={0} effort={1} (chi doc)" -f (& $fmt $re.model $re.modelSource), (& $fmt $re.effort $re.effortSource))
     if ($Exec.budget.maxTokensPerRun) { Write-Host "  tran token  : $($Exec.budget.maxTokensPerRun) / run" }
     Write-Host "  vong sua    : $(if ($Exec.resumeOnPatch) { 'tiep tuc phien implementer cu' } else { 'phien moi moi vong' })"
+    if ($TaskObj.verify -and $TaskObj.verify.steps) { Write-Host "  xac minh    : script Unity MCP truoc ($(@($TaskObj.verify.steps).Count) buoc, 0 token); fail -> $(if ([string]$TaskObj.verify.onFail -eq 'stop') { 'dung' } else { 'giao implementer' })" }
     foreach ($w in $PlanWarnings) { Write-Host "  CANH BAO    : $w" -ForegroundColor Yellow }
 }
 
@@ -615,7 +616,7 @@ $Progress = [ordered]@{
     schema = 'run-progress/v1'; taskId = $TaskObj.id; status = 'RUNNING'; reason = $null; rounds = 0
     host = $ImplHost; profile = $Exec.profile; exec = $Exec; observedModel = $null; machine = $Machine
     startedAt = (Format-RunStamp $RunStamp); baseCommit = $BaseCommit
-    usage = [ordered]@{ implementer = [ordered]@{}; reviewer = [ordered]@{}; total = [ordered]@{} }
+    usage = [ordered]@{ script = [ordered]@{}; implementer = [ordered]@{}; reviewer = [ordered]@{}; total = [ordered]@{} }
     steps = @()
 }
 Save-Progress $true
@@ -638,6 +639,14 @@ $baselineText = if ($TaskObj.baselineRef) { "baselineRef = $($TaskObj.baselineRe
 
 function New-ImplementerPrompt([int]$Round, [string]$PrevReviewPath) {
     $patchBlock = ''
+    if ($ScriptVerifyReport -and $Round -eq 1) {
+        $patchBlock += @"
+
+## Deterministic verification failed first
+tools/run-task.ps1 ran the task's verify steps through Unity MCP (no AI) and they failed. Report:
+``$(Get-RelPath $ScriptVerifyReport)``. Fix what failed; the evidence files it names are already written.
+"@
+    }
     if ($PrevReviewPath) {
         $patchBlock = @"
 
@@ -803,6 +812,49 @@ function Invoke-Reviewer([string]$PromptPath, [string]$LogPath) {
 }
 
 # ---------------------------------------------------------------- loop
+
+# ---------------------------------------------------------------- round 0: xac minh bang script (0 token)
+
+$ScriptVerifyReport = $null
+if ($TaskObj.verify -and $TaskObj.verify.steps) {
+    $vp = Join-Path $RunDir 'r0'
+    Write-Host "[$($TaskObj.id)] round 0 - xac minh bang script (Unity MCP, 0 token) ..."
+    $vStep = Start-Step 'script' 0 'unity-mcp'
+    $mcpUrl = if ($Cap.unity -and $Cap.unity.mcpUrl) { [string]$Cap.unity.mcpUrl } else { 'http://127.0.0.1:8080/mcp' }
+    $vsw = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        Import-Module (Join-Path $PSScriptRoot 'UnityMcp.psm1') -Force
+        Connect-UnityMcp -Url $mcpUrl | Out-Null
+        $vr = Invoke-VerifySteps -Steps $TaskObj.verify.steps -Root $ProjectRoot
+    } catch {
+        $vr = [pscustomobject]@{ Pass = $false; Lines = @("MCP $mcpUrl : $($_.Exception.Message)"); Failures = @("MCP: $($_.Exception.Message)") }
+    }
+    $vUsage = [ordered]@{ model = 'script'; tokens = 0; costUsd = 0; durationMs = $vsw.ElapsedMilliseconds }
+    Write-Text "$vp.verify.md" ("# Script verify ($($TaskObj.id))`n`n" + ((@($vr.Lines) | ForEach-Object { "- $_" }) -join "`n") + "`n")
+    $changed = Get-ChangedSince $Snapshot $Ignore
+    $script:LastChanged = @($changed)
+    $outOfScope = @($changed | Where-Object { -not (Test-InWriteSet $_ @($TaskObj.writeSet)) })
+    $evidence = @(@($TaskObj.verify.steps) | Where-Object { $_.out } | ForEach-Object { [string]$_.out })
+    $vStatus = if ($vr.Pass -and -not $outOfScope.Count) { 'IMPLEMENTED' } else { 'BLOCKED' }
+    $vBlocker = if ($outOfScope.Count) { "script ghi ngoai writeSet: $($outOfScope -join ', ')" } elseif (-not $vr.Pass) { (@($vr.Failures) -join ' | ') } else { $null }
+    Write-Json "$vp.result.json" ([ordered]@{
+            schema = 'result/v1'; taskId = $TaskObj.id; round = 0; host = 'script'; status = $vStatus; blocker = $vBlocker
+            baseCommit = $BaseCommit; targetRef = $TaskObj.targetRef; changedFiles = @($changed); outOfScope = $outOfScope
+            evidence = $evidence; summary = (@($vr.Lines) -join ' | '); log = (Get-RelPath "$vp.verify.md"); usage = $vUsage
+        })
+    Stop-Step $vStep $(if ($vStatus -eq 'IMPLEMENTED') { 'PASS' } else { 'FAIL' }) $(if ($vStatus -eq 'IMPLEMENTED') { 'PASS' } else { 'FAIL' }) $vUsage
+    foreach ($line in @($vr.Lines)) { Write-Host "  $line" }
+    if ($vStatus -eq 'IMPLEMENTED') {
+        # Acceptance la so do duoc (compile/test/parity): khong can reviewer AI.
+        Complete-Run 'DONE_PENDING_FEEL' "script verify PASS, 0 token ($(@($vr.Lines).Count) buoc)" 0
+    }
+    if ([string]$TaskObj.verify.onFail -eq 'stop' -or $outOfScope.Count) {
+        Add-Intervention 'BLOCKED' "script verify: $vBlocker"
+        Complete-Run 'BLOCKED' "script verify: $vBlocker" 0
+    }
+    $ScriptVerifyReport = "$vp.verify.md"
+    Write-Host "[$($TaskObj.id)] script verify FAIL -> giao implementer ($ImplHost)"
+}
 
 $prevReview = $null
 $ImplSession = $null
