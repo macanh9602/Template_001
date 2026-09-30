@@ -107,6 +107,17 @@
         "null"
       ],
       "description": "Commit/tag from BEFORE the work under test (e.g. the previous WP closure tag). Required for any 'pre-existing failure' claim; the runner base commit already contains the work."
+    },
+    "context": {
+      "enum": [
+        "full",
+        "minimal"
+      ],
+      "description": "minimal = implementer chi doc packet + file packet neu ten (task xac minh). Mac dinh full (chuoi doc bat buoc cua AGENTS.md)."
+    },
+    "profile": {
+      "type": "string",
+      "description": "Profile mac dinh cua task trong config/run-profiles.json (ghi de bang -Profile)."
     }
   }
 }

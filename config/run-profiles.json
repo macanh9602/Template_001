@@ -11,7 +11,7 @@
         "codex": {
           "model": null,
           "effort": "high",
-          "serviceTier": null
+          "serviceTier": "default"
         },
         "claude": {
           "model": null,
@@ -37,7 +37,7 @@
         "codex": {
           "model": null,
           "effort": "medium",
-          "serviceTier": null
+          "serviceTier": "default"
         },
         "claude": {
           "model": "sonnet",
@@ -57,7 +57,7 @@
       }
     },
     "fast": {
-      "label": "Nhanh (Codex priority)",
+      "label": "Nhanh (Codex x1.5)",
       "maxPatchRounds": 2,
       "implementer": {
         "codex": {
@@ -89,7 +89,7 @@
         "codex": {
           "model": null,
           "effort": "xhigh",
-          "serviceTier": null
+          "serviceTier": "default"
         },
         "claude": {
           "model": "opus",

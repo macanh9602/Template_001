@@ -31,6 +31,10 @@ Agent tự chủ implementation. Chỉ escalate khi phải đổi guardrail cấ
 
 Không scan toàn project vô hạn. Bắt đầu từ file/story được chỉ định.
 
+**Ngoại lệ — task chạy qua `tools/run-task.ps1` có `"context": "minimal"`** (task xác minh: compile, test, capture,
+parity): chỉ đọc packet và file packet nêu tên; **không** đọc chuỗi 2–8 ở trên, không nạp skill. Luật cứng §5 vẫn áp dụng.
+Lý do: pilot WP004 — task xác minh đọc 16 file (~117 KB) tài liệu, tốn ~135k token cho việc không cần tới chúng.
+
 Đang ở giai đoạn cụ thể (mở project mới, làm editor, làm difficulty, feel pass) → đọc thêm
 playbook tương ứng trong `playbooks/`.
 

@@ -473,8 +473,9 @@ if (-not $Prof) { throw "profile '$ProfileName' khong co trong config/run-profil
 $ip = $null; $rp = $null
 if ($Prof.implementer) { $ip = $Prof.implementer.$ImplHost }
 if ($Prof.reviewer) { $rp = $Prof.reviewer.claude }
+# serviceTier: 'default' = x1 (ep ro, khong phu thuoc config.toml), 'priority' = x1.5, null/'none' = de host tu chon.
 $tier = Select-Value $CodexServiceTier $(if ($ip) { $ip.serviceTier } else { $null })
-if ($tier -eq 'default') { $tier = $null }
+if ($tier -eq 'none') { $tier = $null }
 $rounds = 2
 if ($PSBoundParameters.ContainsKey('MaxPatchRounds') -and $MaxPatchRounds -ge 0) { $rounds = $MaxPatchRounds }
 elseif ($null -ne $Prof.maxPatchRounds) { $rounds = [int]$Prof.maxPatchRounds }
@@ -627,6 +628,12 @@ $writeSetText = (@($TaskObj.writeSet) | ForEach-Object { "- $_" }) -join "`n"
 $acceptText = (@($TaskObj.acceptance) | ForEach-Object { "- [$($_.kind)] $($_.text)" }) -join "`n"
 $reuseText = if ($TaskObj.mustReuse) { (@($TaskObj.mustReuse) | ForEach-Object { "- $_" }) -join "`n" } else { '- (none)' }
 $targetText = if ($TaskObj.targetRef) { $TaskObj.targetRef } else { '(none)' }
+# context minimal: task xac minh khong doc chuoi doc bat buoc cua AGENTS.md (pilot: 16 file ~117 KB, ~135k token).
+$contextRule = if ([string]$TaskObj.context -eq 'minimal') {
+    "CONTEXT: minimal (AGENTS.md section 2 exception). Read ONLY the packet below and files it names explicitly.`nDo NOT read the AGENTS.md reading order (Docs/*, standards/*), skills/*, or other handoff files. Hard rules of AGENTS.md section 5 still apply."
+} else {
+    'Follow AGENTS.md / CLAUDE.md of this repo.'
+}
 $baselineText = if ($TaskObj.baselineRef) { "baselineRef = $($TaskObj.baselineRef)" } else { 'no baselineRef set' }
 
 function New-ImplementerPrompt([int]$Round, [string]$PrevReviewPath) {
@@ -646,7 +653,7 @@ Do not re-litigate the findings; if one is impossible, end with RESULT: BLOCKED 
 # Runner task $($TaskObj.id) - implementer (round $Round)
 
 You are the IMPLEMENTER, running headless under tools/run-task.ps1. No human is watching.
-Follow AGENTS.md / CLAUDE.md of this repo.
+$contextRule
 
 ## Packet
 Read and execute: ``$($TaskObj.packet)``
