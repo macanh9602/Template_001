@@ -20,6 +20,10 @@
   .\tools\doctor.ps1                 # chi kiem
   .\tools\doctor.ps1 -Repair         # kiem + tu sua phan tu dong duoc
   .\tools\doctor.ps1 -SkipSmoke      # khong goi model (khong ton token)
+  .\tools\doctor.ps1 -Blender        # them module Blender (tu bat khi Docs/asset-pipeline.json co 'blender')
+
+  Module Blender (OPTIONAL_CAPABILITY, 0 token): BLENDER_CONFIGURED -> BLENDER_HEADLESS -> BLENDER_EXPORT_SMOKE
+  (tools/blender/smoke_export.py: cube -> FBX + GLB -> import lai), PIPELINE_ROOT, BLENDER_MCP_REACHABLE (localhost:9876).
 #>
 [CmdletBinding()]
 param(
@@ -27,7 +31,10 @@ param(
     [switch]$SkipSmoke,
     [string[]]$Hosts = @('claude', 'codex'),
     [string]$UnityMcpName = 'UnityMCP',
-    [string]$UnityMcpUrl = ''
+    [string]$UnityMcpUrl = '',
+    [switch]$Blender,
+    [string]$BlenderExe = '',
+    [string]$BlenderMcpUrl = 'http://127.0.0.1:9876'
 )
 
 $ErrorActionPreference = 'Continue'
@@ -333,6 +340,55 @@ function Test-CodexHost {
 if ($Hosts -contains 'claude') { Test-ClaudeHost }
 if ($Hosts -contains 'codex') { Test-CodexHost }
 
+# ---------------------------------------------------------------- Blender (OPTIONAL_CAPABILITY)
+
+# Path Blender la cua may: Docs/asset-pipeline.json (gitignored; mau Docs/asset-pipeline.example.json) hoac -BlenderExe.
+$BlenderInfo = $null
+function Test-Blender {
+    $cfgPath = Join-Path $ProjectRoot 'Docs/asset-pipeline.json'
+    $cfg = $null
+    if (Test-Path $cfgPath) { try { $cfg = [System.IO.File]::ReadAllText($cfgPath).TrimStart([char]0xFEFF) | ConvertFrom-Json } catch { } }
+    $exe = if ($BlenderExe) { $BlenderExe } elseif ($cfg -and $cfg.blender) { [string]$cfg.blender } else { $null }
+    if (-not $exe -and -not $Blender) { return }  # module tat: project khong dung Blender
+    if (-not $exe) { $exe = Find-Exe 'blender' }
+    if (-not $exe -or -not (Test-Path $exe)) {
+        Add-Check 'blender' 'BLENDER_CONFIGURED' 'FAIL' "khong thay blender ($(if ($exe) { $exe } else { 'chua khai' }))"
+        $ManualSteps.Add("Blender: copy Docs/asset-pipeline.example.json -> Docs/asset-pipeline.json, dien 'blender' = duong dan blender.exe cua may (hoac doctor -BlenderExe <path>).")
+        return
+    }
+    Add-Check 'blender' 'BLENDER_CONFIGURED' 'PASS' $exe
+    $ver = Invoke-Native $exe @('-b', '--factory-startup', '--python-expr', 'import bpy; print("AGENTPACK_VER", bpy.app.version_string)')
+    $version = if ($ver.Text -match 'AGENTPACK_VER (\S+)') { $Matches[1] } else { $null }
+    if (-not $version) {
+        Add-Check 'blender' 'BLENDER_HEADLESS' 'FAIL' "blender -b khong chay duoc: $(($ver.Text -replace '\s+', ' ').Trim() | ForEach-Object { $_.Substring(0, [Math]::Min(200, $_.Length)) })"
+        return
+    }
+    Add-Check 'blender' 'BLENDER_HEADLESS' 'PASS' "Blender $version"
+    $script:BlenderInfo = [ordered]@{ exe = $exe; version = $version; mcpUrl = $BlenderMcpUrl }
+    if (-not $SkipSmoke) {
+        $smokeDir = Join-Path $ProjectRoot '.toolchain/blender-smoke'
+        $sm = Invoke-Native $exe @('-b', '--factory-startup', '-P', (Join-Path $PSScriptRoot 'blender/smoke_export.py'), '--', '--out', $smokeDir)
+        $line = @($sm.Text -split "`r?`n" | Where-Object { $_ -like 'AGENTPACK_SMOKE *' }) | Select-Object -Last 1
+        $r = if ($line) { try { $line.Substring(16) | ConvertFrom-Json } catch { $null } } else { $null }
+        if ($r -and $r.ok) {
+            Add-Check 'blender' 'BLENDER_EXPORT_SMOKE' 'PASS' "fbx $($r.exports.fbx.bytes) B, glb $($r.exports.glb.bytes) B, import lai 12 tris"
+        } else {
+            $err = if ($r) { (@($r.exports.fbx.error, $r.exports.glb.error) | Where-Object { $_ }) -join ' | ' } else { 'khong co dong AGENTPACK_SMOKE' }
+            Add-Check 'blender' 'BLENDER_EXPORT_SMOKE' 'FAIL' (($err -replace '\s+', ' ').Trim() | ForEach-Object { $_.Substring(0, [Math]::Min(240, $_.Length)) })
+            if ($err -match 'numpy') { $ManualSteps.Add('Blender: ban Blender nay thieu numpy (ban distro Linux). Dung ban tai tu blender.org (co san numpy).') }
+        }
+    }
+    if ($cfg -and $cfg.pipeline_root) {
+        $run = Join-Path ([string]$cfg.pipeline_root) 'pipeline/run.py'
+        if (Test-Path $run) { Add-Check 'blender' 'PIPELINE_ROOT' 'PASS' ([string]$cfg.pipeline_root) }
+        else { Add-Check 'blender' 'PIPELINE_ROOT' 'WARN' "khong thay $run" }
+    }
+    # Blender MCP (duong live): chi reachable khi Blender dang mo va da bam Connect trong tab BlenderMCP.
+    if (Test-TcpPort $BlenderMcpUrl) { Add-Check 'blender' 'BLENDER_MCP_REACHABLE' 'PASS' $BlenderMcpUrl }
+    else { Add-Check 'blender' 'BLENDER_MCP_REACHABLE' 'WARN' "$BlenderMcpUrl chua mo (mo Blender > N-panel BlenderMCP > Connect; chi can cho task dung duong live)" }
+}
+Test-Blender
+
 # ---------------------------------------------------------------- Report
 
 # -SkipSmoke khong goi model; giu lai ket qua smoke PASS gan day (<= 7 ngay) de runner van dispatch duoc.
@@ -344,8 +400,9 @@ if ($SkipSmoke -and (Test-Path $outPath)) {
         $prevAge = ((Get-Date) - [DateTime]::Parse($prev.generatedAt)).TotalDays
         if ($prevAge -le 7) {
             foreach ($c in @($prev.checks)) {
-                if ($c.status -ne 'PASS' -or @('UNITY_MCP_SMOKE_PASS', 'REVIEWER_READONLY') -notcontains $c.level) { continue }
-                $cfgOk = @($Results | Where-Object { $_.host -eq $c.host -and $_.level -eq 'UNITY_MCP_CONFIGURED' -and $_.status -eq 'PASS' }).Count -gt 0
+                if ($c.status -ne 'PASS' -or @('UNITY_MCP_SMOKE_PASS', 'REVIEWER_READONLY', 'BLENDER_EXPORT_SMOKE') -notcontains $c.level) { continue }
+                $needLevel = if ($c.host -eq 'blender') { 'BLENDER_HEADLESS' } else { 'UNITY_MCP_CONFIGURED' }
+                $cfgOk = @($Results | Where-Object { $_.host -eq $c.host -and $_.level -eq $needLevel -and $_.status -eq 'PASS' }).Count -gt 0
                 $already = @($Results | Where-Object { $_.host -eq $c.host -and $_.level -eq $c.level }).Count -gt 0
                 if ($cfgOk -and -not $already) { Add-Check $c.host $c.level 'PASS' "cached $($prev.generatedAt.ToString().Substring(0, 16)) ($($c.detail))" }
             }
@@ -363,6 +420,7 @@ $capabilities = [ordered]@{
     hosts       = $HostInfo
     # Runner goi thang Unity MCP qua HTTP cho task xac minh bang script (khong ton token).
     unity       = [ordered]@{ mcpUrl = $(if ($unityEntry -and $unityEntry.url) { $unityEntry.url } else { $null }) }
+    blender     = $BlenderInfo
     checks      = $Results
 }
 Write-Utf8NoBom $outPath ($capabilities | ConvertTo-Json -Depth 5)

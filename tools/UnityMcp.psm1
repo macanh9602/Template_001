@@ -190,16 +190,17 @@ function Assert-UnityProject([string]$Root) {
 }
 
 function Invoke-VerifySteps {
-    param([Parameter(Mandatory = $true)]$Steps, [Parameter(Mandatory = $true)][string]$Root, [int]$TestTimeoutMin = 25)
+    param([Parameter(Mandatory = $true)]$Steps, [Parameter(Mandatory = $true)][string]$Root, [int]$TestTimeoutMin = 25,
+        [string]$BlenderExe, [switch]$SkipProjectCheck)
     $lines = New-Object System.Collections.Generic.List[string]
     $fails = New-Object System.Collections.Generic.List[string]
-    $wrong = Assert-UnityProject $Root
+    $wrong = if ($SkipProjectCheck) { $null } else { Assert-UnityProject $Root }
     if ($wrong) {
         $lines.Add("[0] project: SAI $wrong")
         $fails.Add("[0] project: $wrong")
         return [pscustomobject]@{ Pass = $false; Lines = @($lines); Failures = @($fails) }
     }
-    $lines.Add('[0] project: OK')
+    if (-not $SkipProjectCheck) { $lines.Add('[0] project: OK') }
     $i = 0
     foreach ($s in @($Steps)) {
         $i++
@@ -288,6 +289,29 @@ function Invoke-VerifySteps {
                     $r = Invoke-UnityTool -Name 'execute_menu_item' -Arguments @{ menu_path = [string]$s.path } -TimeoutSec 300
                     if ($r -and $r.success -eq $false) { throw "menu '$($s.path)': $($r.message) $($r.error)" }
                     $lines.Add("${label}: OK '$($s.path)'")
+                }
+                'blender' {
+                    # Blender headless (0 token): tools/blender/mesh_report.py -> nguong trong step. Exe tu doctor (capabilities.blender).
+                    if (-not $BlenderExe) { throw 'chua co Blender (doctor -Blender; Docs/asset-pipeline.json)' }
+                    $script = if ($s.script) { [string]$s.script } else { 'tools/blender/mesh_report.py' }
+                    $bargs = @('-b', '--factory-startup', '-P', (Join-Path $Root $script), '--') + @($s.args | ForEach-Object { if ($_ -match '^[\w./-]+\.(fbx|glb|gltf|obj|blend)$') { Join-Path $Root $_ } else { [string]$_ } })
+                    $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+                    try { $bout = (& $BlenderExe @bargs 2>&1 | ForEach-Object { "$_" }) -join "`n" } finally { $ErrorActionPreference = $prevEap }
+                    $bline = @($bout -split "`n" | Where-Object { $_ -match '^AGENTPACK_[A-Z]+ ' }) | Select-Object -Last 1
+                    if (-not $bline) { throw "blender khong in dong AGENTPACK_*: $(($bout -replace '\s+', ' ').Substring(0, [Math]::Min(200, ($bout -replace '\s+', ' ').Length)))" }
+                    $rep = $bline.Substring($bline.IndexOf(' ') + 1) | ConvertFrom-Json
+                    $why = @()
+                    if (-not $rep.ok) { $why += "report loi: $($rep.error)" }
+                    if ($null -ne $s.maxTris -and [int]$rep.tris -gt [int]$s.maxTris) { $why += "$($rep.tris) tris > $($s.maxTris)" }
+                    if ($null -ne $s.maxMaterials -and [int]$rep.materials -gt [int]$s.maxMaterials) { $why += "$($rep.materials) material > $($s.maxMaterials)" }
+                    if ($s.pivotBottom -eq $true -and -not $rep.pivotBottom) { $why += 'pivot khong o day (min z != 0)' }
+                    if ($s.maxSize -and $rep.bounds) {
+                        for ($k = 0; $k -lt 3; $k++) { if ([double]$rep.bounds.size[$k] -gt [double]@($s.maxSize)[$k] + 1e-4) { $why += "bounds $($rep.bounds.size -join 'x') > $(@($s.maxSize) -join 'x')"; break } }
+                    }
+                    Write-VerifyFile $Root $s.out ($bline + "`n")
+                    $sum = if ($rep.ok) { "$($rep.tris) tris, $($rep.materials) mat, size $($rep.bounds.size -join 'x')" } else { '' }
+                    if ($why.Count) { $fails.Add("${label}: " + ($why -join '; ')); $lines.Add("${label}: FAIL " + ($why -join '; ')) }
+                    else { $lines.Add("${label}: OK $sum") }
                 }
                 'files' {
                     $missing = @(@($s.exist) | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })

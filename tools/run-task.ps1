@@ -441,7 +441,9 @@ $Cap = Read-Json $capPath
 
 function Test-HostLevels([string]$HostName, [string[]]$Levels) {
     foreach ($lvl in $Levels) {
-        $hit = @($Cap.checks | Where-Object { $_.host -eq $HostName -and $_.level -eq $lvl -and $_.status -eq 'PASS' })
+        # BLENDER_* la capability cua may (doctor -Blender), khong cua implementer host.
+        $checkHost = if ($lvl -like 'BLENDER_*') { 'blender' } else { $HostName }
+        $hit = @($Cap.checks | Where-Object { $_.host -eq $checkHost -and $_.level -eq $lvl -and $_.status -eq 'PASS' })
         if ($hit.Count -eq 0) { return $false }
     }
     return [bool]($Cap.hosts -and $Cap.hosts.$HostName -and $Cap.hosts.$HostName.exe)
@@ -858,14 +860,17 @@ function Invoke-Reviewer([string]$PromptPath, [string]$LogPath) {
 $ScriptVerifyReport = $null
 if ($TaskObj.verify -and $TaskObj.verify.steps) {
     $vp = Join-Path $RunDir 'r0'
-    Write-Host "[$($TaskObj.id)] round 0 - xac minh bang script (Unity MCP, 0 token) ..."
+    Write-Host "[$($TaskObj.id)] round 0 - xac minh bang script (Unity MCP / Blender, 0 token) ..."
     $vStep = Start-Step 'script' 0 'unity-mcp'
     $mcpUrl = if ($Cap.unity -and $Cap.unity.mcpUrl) { [string]$Cap.unity.mcpUrl } else { 'http://127.0.0.1:8080/mcp' }
     $vsw = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         Import-Module (Join-Path $PSScriptRoot 'UnityMcp.psm1') -Force
-        Connect-UnityMcp -Url $mcpUrl | Out-Null
-        $vr = Invoke-VerifySteps -Steps $TaskObj.verify.steps -Root $ProjectRoot
+        # Task chi co buoc blender/files thi khong can Unity mo.
+        $needsUnity = @($TaskObj.verify.steps | Where-Object { @('blender', 'files') -notcontains [string]$_.do }).Count -gt 0
+        if ($needsUnity) { Connect-UnityMcp -Url $mcpUrl | Out-Null }
+        $blenderExe = if ($Cap.blender -and $Cap.blender.exe) { [string]$Cap.blender.exe } else { $null }
+        $vr = Invoke-VerifySteps -Steps $TaskObj.verify.steps -Root $ProjectRoot -BlenderExe $blenderExe -SkipProjectCheck:(-not $needsUnity)
     } catch {
         $vr = [pscustomobject]@{ Pass = $false; Lines = @("MCP $mcpUrl : $($_.Exception.Message)"); Failures = @("MCP: $($_.Exception.Message)") }
     }

@@ -7,7 +7,8 @@
     - dependsOn: task chi bat dau khi moi dependency da DONE (trong batch, hoac run gan nhat da DONE_PENDING_FEEL).
       Dependency fail -> task SKIPPED.
     - writeSet: hai task co writeSet giao nhau khong chay cung luc (so theo tien to truoc ky tu glob dau tien, than trong).
-    - tai nguyen doc quyen: 'unity' (resources co 'unity', requires UNITY_*, hoac co khoi verify) -> toi da 1 luong Unity.
+    - tai nguyen doc quyen: 'unity' (resources co 'unity', requires UNITY_*, hoac buoc verify can Unity) -> toi da 1 luong Unity;
+      'blender' (requires BLENDER_*, buoc verify blender) -> toi da 1 luong Blender.
     - toi da -MaxParallel task cung luc (mac dinh 2).
   Cung working tree: moi runner nhan -ExternalWriteSet = writeSet cua cac task khac, de khong tinh file cua task kia.
   Khong commit giua chung (git index.lock); -Commit commit tung task PASS sau khi ca batch xong.
@@ -101,8 +102,12 @@ foreach ($p in $paths) {
     $t = Read-JsonFile $full
     if ($t.schema -ne 'task/v1') { Write-Warning "bo qua $(Get-RelPath $full): schema '$($t.schema)'"; continue }
     $res = @($t.resources | Where-Object { $_ })
-    $usesUnity = ($res -contains 'unity') -or [bool]$t.verify -or (@($t.requires | Where-Object { $_ -like 'UNITY_*' }).Count -gt 0)
+    $unitySteps = @($t.verify.steps | Where-Object { $_ -and @('blender', 'files') -notcontains [string]$_.do })
+    $usesUnity = ($res -contains 'unity') -or $unitySteps.Count -gt 0 -or (@($t.requires | Where-Object { $_ -like 'UNITY_*' }).Count -gt 0)
     if ($usesUnity -and $res -notcontains 'unity') { $res += 'unity' }
+    # Blender: mot phien MCP / mot pipeline tren may -> doc quyen nhu Unity.
+    $usesBlender = ($res -contains 'blender') -or @($t.verify.steps | Where-Object { $_ -and [string]$_.do -eq 'blender' }).Count -gt 0 -or (@($t.requires | Where-Object { $_ -like 'BLENDER_*' }).Count -gt 0)
+    if ($usesBlender -and $res -notcontains 'blender') { $res += 'blender' }
     $items.Add([pscustomobject]@{
             id = [string]$t.id; path = (Get-RelPath $full); writeSet = @($t.writeSet); dependsOn = @($t.dependsOn | Where-Object { $_ })
             resources = @($res); state = 'PENDING'; status = $null; reason = $null; proc = $null; out = $null; started = $null; finished = $null; runDir = $null

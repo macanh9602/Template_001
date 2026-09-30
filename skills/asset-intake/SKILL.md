@@ -100,6 +100,13 @@ logic o root, visual o child `View/`. Placeholder cung la prefab that, khong `Cr
 
 ---
 
+## Kiem bang script (0 token)
+
+- May co Blender: `.\tools\doctor.ps1 -Blender` (BLENDER_HEADLESS, BLENDER_EXPORT_SMOKE: cube -> FBX + GLB -> import lai; BLENDER_MCP_REACHABLE cho duong live).
+- Task intake them buoc verify doc mesh da export, khong can Unity, khong can agent:
+  `{ "do": "blender", "args": ["--mesh", "Assets/.../x.fbx"], "maxTris": 800, "maxMaterials": 1, "maxSize": [1, 0.6, 1], "pivotBottom": true, "out": "handoff/<wp>/captures/x-mesh.json" }`
+  (`tools/blender/mesh_report.py`: tris, verts, materials, bounds, pivot). Task can `requires: ["BLENDER_EXPORT_SMOKE"]`; run-batch coi `blender` la tai nguyen doc quyen.
+
 ## Khong lam gi
 
 - Khong sinh mesh trong skill nay.

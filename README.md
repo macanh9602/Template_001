@@ -115,6 +115,7 @@ tools/
   new-game.ps1         mở game mới từ Template: tên, code, namespace, bundle id, dọn phần riêng của Template
   sync-skills.ps1      sinh .claude/skills/ từ skills/ (canonical); -Check báo lệch
   ReuseRegistry.psm1   quét code viết lại hệ thống có sẵn (Docs/reuse-registry.json) cho lint + runner
+  blender/             smoke_export.py (doctor -Blender) + mesh_report.py (verify step 'blender', 0 token)
   UnityMcp.psm1        gọi Unity MCP từ script (verify 0 token)
 
 config/

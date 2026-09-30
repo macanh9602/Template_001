@@ -29,6 +29,9 @@ thêm `REVIEWER_READONLY` cho Claude. Task khai mức cần trong `requires`; ru
 > Capability là của **host được giao**, không chỉ của máy. Máy có Unity nhưng host implementer không có
 > Unity MCP thì không được giao task Unity — nếu không PO lại thành người compile/capture hộ.
 
+**Blender (tuỳ chọn):** `.\tools\doctor.ps1 -Blender` — path lấy từ `Docs/asset-pipeline.json` (gitignored) hoặc `-BlenderExe`.
+Kiểm `BLENDER_CONFIGURED → BLENDER_HEADLESS → BLENDER_EXPORT_SMOKE` (+ `PIPELINE_ROOT`, `BLENDER_MCP_REACHABLE`), 0 token.
+
 ## 2. Viết task
 
 Task = **packet prose** (`handoff/<wp>/tasks/<id>.md`, theo `templates/worker-packet.md`) +
@@ -85,6 +88,7 @@ runner gọi **thẳng Unity MCP qua HTTP** (`tools/UnityMcp.psm1`, URL lấy t�
 }
 ```
 
+- Bước `blender` (Blender headless, không cần Unity): đọc mesh bằng `tools/blender/mesh_report.py`, kiểm `maxTris` / `maxMaterials` / `maxSize` / `pivotBottom` (`skills/asset-intake/`). Task chỉ có bước `blender`/`files` thì không kết nối Unity MCP.
 - Trước bước 1, script tự kiểm **đúng project**: đọc `mcpforunity://project/info` và so với repo. Có nhiều Editor cùng nối MCP ⇒ chọn instance trùng tên thư mục repo (`set_active_instance`). Sai ⇒ dừng ngay ở bước `[0] project`.
 - Bước `tests` nên có `"minTotal": <số test hiện có>`: ít test bất thường = assembly test không compile hoặc sai project.
 - Việc bất đồng bộ (capture trong Play Mode, job dài): bước `console` thêm `"waitSec": 180` + `minCount` ⇒ đọc lại mỗi 5 s tới khi đủ dòng hoặc hết giờ.
