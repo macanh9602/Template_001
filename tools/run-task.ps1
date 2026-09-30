@@ -439,6 +439,7 @@ $ReviewerExe = $Cap.hosts.claude.exe
 
 # ---------------------------------------------------------------- profile -> exec plan
 
+
 function Get-RunProfiles {
     $pp = Join-Path $ProjectRoot 'config/run-profiles.json'
     if (Test-Path $pp) { return (Read-Json $pp) }
@@ -462,6 +463,41 @@ if ($PSBoundParameters.ContainsKey('MaxPatchRounds') -and $MaxPatchRounds -ge 0)
 elseif ($null -ne $Prof.maxPatchRounds) { $rounds = [int]$Prof.maxPatchRounds }
 $autoHost = $null
 foreach ($h in @($TaskObj.implementers)) { if (Test-HostLevels $h @($TaskObj.requires)) { $autoHost = $h; break } }
+# Model/effort/tier host se dung khi profile de null: doc config cua host truoc khi chay,
+# de trang ke hoach va dashboard hien dung model (Sol/Luna, phien ban) ngay tu dau.
+function Get-CodexConfigDefaults {
+    $home2 = $env:CODEX_HOME
+    if (-not $home2) { $home2 = Join-Path $HOME '.codex' }
+    $cfgPath = Join-Path $home2 'config.toml'
+    $r = [ordered]@{ model = $null; effort = $null; serviceTier = $null }
+    if (-not (Test-Path $cfgPath)) { return $r }
+    foreach ($line in [System.IO.File]::ReadAllLines($cfgPath)) {
+        $t = $line.Trim()
+        if ($t -match '^\[') { break }  # chi doc phan top-level, truoc [section] dau tien
+        if ($t -match '^model\s*=\s*"([^"]+)"') { $r.model = $Matches[1] }
+        elseif ($t -match '^model_reasoning_effort\s*=\s*"([^"]+)"') { $r.effort = $Matches[1] }
+        elseif ($t -match '^service_tier\s*=\s*"([^"]+)"') { $r.serviceTier = $Matches[1] }
+    }
+    return $r
+}
+function Get-ClaudeSettingsDefaults {
+    $r = [ordered]@{ model = $null; effort = $null; serviceTier = $null }
+    $sp = Join-Path $HOME '.claude/settings.json'
+    if (Test-Path $sp) { try { $j = Read-Json $sp; if ($j.model) { $r.model = [string]$j.model } } catch { } }
+    return $r
+}
+function Resolve-Effective($Cfg, [string]$HostName) {
+    $d = if ($HostName -eq 'codex') { Get-CodexConfigDefaults } else { Get-ClaudeSettingsDefaults }
+    $src = if ($HostName -eq 'codex') { 'config.toml' } else { 'settings.json' }
+    $out = [ordered]@{}
+    foreach ($k in @('model', 'effort', 'serviceTier')) {
+        if ($Cfg.$k) { $out[$k] = [string]$Cfg.$k; $out[$k + 'Source'] = 'profile' }
+        elseif ($d[$k]) { $out[$k] = [string]$d[$k]; $out[$k + 'Source'] = $src }
+        else { $out[$k] = $null; $out[$k + 'Source'] = 'account' }
+    }
+    return $out
+}
+
 $Exec = [ordered]@{
     profile = $ProfileName; maxPatchRounds = $rounds; implementerDefault = $autoHost
     implementer = [ordered]@{
@@ -477,13 +513,18 @@ $Exec = [ordered]@{
     }
 }
 
+$Exec.implementer.effective = (Resolve-Effective $Exec.implementer $ImplHost)
+$Exec.reviewer.effective = (Resolve-Effective $Exec.reviewer 'claude')
+
 function Show-PlanConsole {
     $i = $Exec.implementer; $r = $Exec.reviewer
     $dash = '(mac dinh)'
     Write-Host ''
     Write-Host "[$($TaskObj.id)] KE HOACH  profile=$($Exec.profile)  vong sua toi da=$($Exec.maxPatchRounds)"
-    Write-Host ("  implementer : {0,-7} model={1} effort={2}{3}" -f $i.host, $(if ($i.model) { $i.model } else { $dash }), $(if ($i.effort) { $i.effort } else { $dash }), $(if ($i.host -eq 'codex') { " tier=$(if ($i.serviceTier) { $i.serviceTier } else { 'standard' })" } else { '' }))
-    Write-Host ("  reviewer    : claude  model={0} effort={1} (chi doc)" -f $(if ($r.model) { $r.model } else { $dash }), $(if ($r.effort) { $r.effort } else { $dash }))
+    $ie = $i.effective; $re = $r.effective
+    $fmt = { param($v, $src) if ($v) { if ($src -eq 'profile') { $v } else { "$v ($src)" } } else { $dash } }
+    Write-Host ("  implementer : {0,-7} model={1} effort={2}{3}" -f $i.host, (& $fmt $ie.model $ie.modelSource), (& $fmt $ie.effort $ie.effortSource), $(if ($i.host -eq 'codex') { " tier=$(if ($ie.serviceTier) { & $fmt $ie.serviceTier $ie.serviceTierSource } else { 'standard' })" } else { '' }))
+    Write-Host ("  reviewer    : claude  model={0} effort={1} (chi doc)" -f (& $fmt $re.model $re.modelSource), (& $fmt $re.effort $re.effortSource))
 }
 
 function Write-PlanPage([string]$OutPath) {
@@ -493,7 +534,7 @@ function Write-PlanPage([string]$OutPath) {
         $hosts[$h] = [ordered]@{ ok = (Test-HostLevels $h @($TaskObj.requires)); levels = $levels }
     }
     $runs = Get-RunsData
-    $codexModels = @($runs | Where-Object { $_.observedModel -and $_.exec -and $_.exec.implementer.host -eq 'codex' } | ForEach-Object { $_.observedModel } | Sort-Object -Unique)
+    $codexModels = @(@($runs | Where-Object { $_.observedModel -and $_.exec -and $_.exec.implementer.host -eq 'codex' } | ForEach-Object { $_.observedModel }) + @((Get-CodexConfigDefaults).model) | Where-Object { $_ } | Sort-Object -Unique)
     $data = [ordered]@{
         mode = 'plan'; wp = (Split-Path -Leaf $WpDir); generatedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
         runs = $runs; interventions = (Get-Interventions)

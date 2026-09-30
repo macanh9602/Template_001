@@ -82,6 +82,15 @@ const STATUS = {
   BLOCKED: ['s-bad', 'Bị chặn'], BLOCKED_TOOLCHAIN: ['s-bad', 'Thiếu công cụ'], CANCELLED: ['s-warn', 'Đã huỷ'],
 };
 const pill = (s) => { const [c, l] = STATUS[s] || ['s-warn', s || '?']; return `<span class="pill ${c}">${esc(l)}</span>`; };
+// Model/effort hien thi: gia tri + nguon (profile / config.toml / settings.json / account = mac dinh tai khoan).
+const SRC = { profile: '', 'config.toml': ' · config.toml', 'settings.json': ' · settings.json', account: '' };
+const eff = (cfg, key, observed) => {
+  const e = cfg?.effective;
+  if (cfg?.[key]) return cfg[key];
+  if (e?.[key]) return e[key] + (SRC[e[key + 'Source']] ?? '');
+  if (observed) return observed + ' · đo được';
+  return key === 'model' ? 'mặc định tài khoản' : null;
+};
 const chips = (o) => Object.entries(o).filter(([, v]) => v != null && v !== '').map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join('');
 
 function runsTotals(runs) {
@@ -151,7 +160,7 @@ function renderDashboard(d) {
   for (const r of Object.values(latest).sort((a, b) => b.startedAt.localeCompare(a.startedAt))) {
     sec.lastChild.append($(`<div class="card">
       <div class="row"><b>${esc(r.taskId)}</b>${pill(r.status)}<span class="spacer"></span><span class="sub">${esc(r.startedAt)}</span></div>
-      <div style="margin-top:6px">${chips({ profile: r.profile, implementer: r.exec?.implementer?.host, model: r.exec?.implementer?.model || r.observedModel, effort: r.exec?.implementer?.effort, tier: r.exec?.implementer?.serviceTier, reviewer: r.exec?.reviewer?.model || 'claude' })}</div>
+      <div style="margin-top:6px">${chips({ profile: r.profile, implementer: r.exec?.implementer?.host, model: r.exec ? eff(r.exec.implementer, 'model', r.observedModel) : r.observedModel, effort: r.exec ? eff(r.exec.implementer, 'effort') : null, tier: r.exec?.implementer?.host === 'codex' ? (eff(r.exec.implementer, 'serviceTier') || 'standard') : null, reviewer: r.exec ? 'claude ' + eff(r.exec.reviewer, 'model') : 'claude' })}</div>
       ${r.reason ? `<div class="sub" style="margin-top:6px">${esc(r.reason).slice(0, 280)}</div>` : ''}
       ${timeline(r)}
     </div>`));
@@ -205,9 +214,9 @@ function renderPlan(d) {
     app.append($(`<section class="card"><h2>Luồng giao việc</h2><div class="pipe">
       <div class="node"><div class="t">Task</div><div class="n">${esc(p.task.id)}</div><div class="sub">${esc(p.task.packet)}</div></div>
       <span class="arrow">→</span>
-      <div class="node"><div class="t">🛠 Implementer</div><div class="n">${esc(im.host)}</div>${chips({ model: im.model || 'mặc định host', effort: im.effort || 'mặc định', tier: im.host === 'codex' ? (im.serviceTier || 'standard') : null })}</div>
+      <div class="node"><div class="t">🛠 Implementer</div><div class="n">${esc(im.host)}</div>${chips({ model: im.model || (im.host === p.exec.implementer.host ? eff(p.exec.implementer, 'model') : 'mặc định tài khoản'), effort: im.effort || (im.host === p.exec.implementer.host ? eff(p.exec.implementer, 'effort') : null) || 'mặc định', tier: im.host === 'codex' ? (im.serviceTier || 'standard') : null })}</div>
       <span class="arrow">→</span>
-      <div class="node"><div class="t">🔎 Reviewer (chỉ đọc)</div><div class="n">claude</div>${chips({ model: rv.model || 'mặc định host', effort: rv.effort || 'mặc định' })}</div>
+      <div class="node"><div class="t">🔎 Reviewer (chỉ đọc)</div><div class="n">claude</div>${chips({ model: rv.model || eff(p.exec.reviewer, 'model'), effort: rv.effort || eff(p.exec.reviewer, 'effort') || 'mặc định' })}</div>
       <span class="loop">↺ sửa tối đa ${state.maxPatchRounds} vòng</span>
       <span class="arrow">→</span>
       <div class="node"><div class="t">Kết quả</div><div class="n">Đạt / Báo người</div><div class="sub">Tự commit khi đạt</div></div>
@@ -224,12 +233,12 @@ function renderPlan(d) {
     const g = ctl.children[2];
     const field = (label, el) => { const l = $(`<label class="f">${esc(label)}</label>`); l.append(el); g.append(l); };
     const sel = (opts, val, on) => { const s = $(`<select>${opts.map(o => `<option value="${esc(o[0])}" ${String(o[0]) === String(val ?? '') ? 'selected' : ''} ${o[2] ? 'disabled' : ''}>${esc(o[1])}</option>`).join('')}</select>`); s.onchange = () => { on(s.value); draw(); }; return s; };
-    const inp = (val, list, on) => { const i = $(`<input value="${esc(val || '')}" placeholder="mặc định host" list="${list}">`); i.onchange = () => { on(i.value.trim() || null); draw(); }; return i; };
+    const inp = (val, list, on, ph) => { const i = $(`<input value="${esc(val || '')}" placeholder="${esc(ph || 'mặc định tài khoản')}" list="${list}">`); i.onchange = () => { on(i.value.trim() || null); draw(); }; return i; };
     field('Implementer', sel(Object.keys(p.hosts).filter(h => h !== 'unity').map(h => [h, h + (hostOk(h) ? '' : ' (chưa sẵn sàng)'), !hostOk(h)]), im.host, v => { im.host = v; applyProfile(state.profile); }));
-    field('Model implementer', inp(im.model, im.host === 'claude' ? 'claude-models' : 'codex-models', v => im.model = v));
+    field('Model implementer', inp(im.model, im.host === 'claude' ? 'claude-models' : 'codex-models', v => im.model = v, im.host === p.exec.implementer.host ? eff(p.exec.implementer, 'model') : null));
     field('Effort implementer', sel([['', 'mặc định'], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh']].concat(im.host === 'claude' ? [['max', 'max']] : []), im.effort, v => im.effort = v || null));
     if (im.host === 'codex') field('Tốc độ Codex', sel([['', 'standard'], ['priority', 'priority (nhanh hơn, tốn hơn)']], im.serviceTier, v => im.serviceTier = v || null));
-    field('Model reviewer', inp(rv.model, 'claude-models', v => rv.model = v));
+    field('Model reviewer', inp(rv.model, 'claude-models', v => rv.model = v, eff(p.exec.reviewer, 'model')));
     field('Effort reviewer', sel([['', 'mặc định'], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh'], ['max', 'max']], rv.effort, v => rv.effort = v || null));
     field('Số vòng sửa tối đa', sel([[0, '0'], [1, '1'], [2, '2'], [3, '3']], state.maxPatchRounds, v => state.maxPatchRounds = Number(v)));
     ctl.append($(`<datalist id="claude-models"><option value="sonnet"><option value="opus"><option value="haiku"></datalist>`));
