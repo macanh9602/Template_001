@@ -61,6 +61,10 @@ VIỆC ĐẦU TIÊN:
 
 ## Gợi ý
 
+**Có executable prototype (`.html`) hoặc project chưa có identity** ⇒ không dùng START-PROMPT; chạy Phase A:
+`handoff/PHASE-A-DIRECTOR-PROMPT.md` + `handoff/PHASE-A-CRITIC-PROMPT.md` song song
+(`workflow/phase-a-contract-bootstrap.md`). PROJECT-READINESS chạy như subtask bên trong Director, PO không phải mở thêm phiên.
+
 **Project mới hoàn toàn**
 
 ```text

@@ -7,6 +7,14 @@ Mục tiêu không phải "có gameplay". Mục tiêu là **không tạo rework 
 
 ---
 
+## Bước -2 — Phase A orchestration (khi có executable prototype)
+
+Có `.html` prototype / input executable ⇒ Bước -1 tới Bước 4A chạy thành **một** Phase A có Director + Critic + PO song song:
+`workflow/phase-a-contract-bootstrap.md`. Gate authority, conformance và foundation **giữ nguyên**; chỉ khác là
+Critic review contract trước lock và PO trả lời một batch câu hỏi thay vì nhiều phiên tuần tự.
+
+---
+
 ## Bước -1 — Classify product input / authoring source
 
 Nếu đầu vào có executable prototype, external Level Editor, reference implementation, simulator/solver hoặc runtime cũ,

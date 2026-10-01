@@ -16,6 +16,7 @@
     PKG_FLOATING    Git package trong Packages/manifest.json troi theo branch (#main, khong #).
     PRODUCT_NAME    Project that van mang productName cua Template.
     GITIGNORE       Thieu ignore cho file machine-local cua toolchain.
+    PS1_PARSE       File .ps1/.psm1 co loi cu phap (script khong chay duoc).
     PS1_PARAM_PSSCRIPTROOT  Gia tri mac dinh cua param dung $PSScriptRoot (rong tren Windows PowerShell 5.1).
     SKILL_SYNC      Ban sao skill cua host (.claude/skills) lech skills/ (canonical).
     REUSE_BYPASS    Code khop mau 'avoid' trong Docs/reuse-registry.json (viet lai he thong co san). WARN.
@@ -103,8 +104,17 @@ foreach ($f in $Tracked) {
         $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
         Add-Finding 'BOM' 'FAIL' $f 'UTF-8 BOM; ghi lai UTF-8 khong BOM (PS 5.1: [IO.File]::WriteAllText + UTF8Encoding($false))'
     }
-    if ($f -match '^tools/.*\.ps(m?)1$') {
+    if ($f -match '^(tools|templates)/.*\.ps(m?)1$') {
         foreach ($b in $bytes) { if ($b -gt 0x7F) { Add-Finding 'PS1_NON_ASCII' 'FAIL' $f 'co ky tu ngoai ASCII; PS 5.1 doc .ps1 khong BOM theo ANSI'; break } }
+    }
+    if ($f -match '\.ps(m?)1$') {
+        # Loi cu phap lam script khong bao gio chay duoc (vd backtick markdown trong chuoi "..."); parse khong thuc thi gi.
+        $parseErrors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseFile($full, [ref]$null, [ref]$parseErrors)
+        if ($parseErrors -and $parseErrors.Count) {
+            $pe = $parseErrors[0]
+            Add-Finding 'PS1_PARSE' 'FAIL' "$f`:$($pe.Extent.StartLineNumber)" "khong parse duoc: $($pe.Message) ($($parseErrors.Count) loi)"
+        }
     }
     if ($isHistory) { continue }
 

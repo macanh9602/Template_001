@@ -61,11 +61,18 @@ if ($manifest.manifestVersion -ne 1) {
 Push-Location $root
 try {
     $isGit = Test-Path ".git"
+    $dirtyPaths = @()
     if ($isGit -and -not $Force) {
-        $dirty = (& git status --porcelain)
+        $dirty = @(& git status --porcelain)
         if ($LASTEXITCODE -ne 0) { throw "git status failed" }
-        if ($dirty) {
+        # DryRun writes nothing: report dirty files instead of refusing, so the PO can review the plan first.
+        if ($dirty.Count -and -not $DryRun) {
             throw "Working tree is dirty. Commit/stash first or re-run with -Force after review."
+        }
+        $dirtyPaths = @($dirty | ForEach-Object { ($_.Substring(3) -replace '^"|"$', '') -replace '\\', '/' })
+        if ($dirtyPaths.Count) {
+            Write-Host "WARNING: working tree is dirty ($($dirtyPaths.Count) path(s)). Apply will refuse until it is clean:"
+            $dirtyPaths | ForEach-Object { Write-Host "  dirty: $_" }
         }
     }
 
@@ -98,7 +105,14 @@ try {
             throw "SHA mismatch before $operation : $relative"
         }
 
-        $report.Add("$operation`t$relative`tbefore=$beforeSha")
+        $norm = ($relative -replace '\\', '/').TrimEnd('/')
+        $touchesDirty = $dirtyPaths | Where-Object { $_.TrimEnd('/') -eq $norm }
+        $wouldFail = ''
+        if (-not $Force) {
+            if ($operation -eq 'add' -and $beforeSha) { $wouldFail = "`tWOULD-FAIL(add target exists)" }
+            elseif ($operation -eq 'replace' -and -not $beforeSha) { $wouldFail = "`tWOULD-FAIL(replace target missing)" }
+        }
+        $report.Add("$operation`t$relative`tbefore=$beforeSha" + $(if ($touchesDirty) { "`tTOUCHES-DIRTY" } else { "" }) + $wouldFail)
 
         if ($DryRun) { continue }
 
@@ -148,16 +162,16 @@ try {
     $reportLines.Add("# Bootstrap Report")
     $reportLines.Add("")
     $reportLines.Add("- Applied: " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"))
-    $reportLines.Add("- Project root: `" + $root + "`")
-    $reportLines.Add("- Manifest: `" + $manifestFile + "`")
-    $reportLines.Add("- Manifest SHA256: `" + $manifestSha + "`")
-    $reportLines.Add("- Backup: " + $(if ($NoBackup) { "disabled" } else { "`" + $backupRoot + "`" }))
+    $reportLines.Add('- Project root: `' + $root + '`')
+    $reportLines.Add('- Manifest: `' + $manifestFile + '`')
+    $reportLines.Add('- Manifest SHA256: `' + $manifestSha + '`')
+    $reportLines.Add('- Backup: ' + $(if ($NoBackup) { 'disabled' } else { '`' + $backupRoot + '`' }))
     $reportLines.Add("")
     $reportLines.Add("## Operations")
     $reportLines.Add("")
-    $reportLines.Add("```text")
+    $reportLines.Add('```text')
     foreach ($line in $report) { $reportLines.Add($line) }
-    $reportLines.Add("```")
+    $reportLines.Add('```')
     Write-Utf8Text $reportFile ($reportLines -join "`n")
 
     if ($isGit) {
